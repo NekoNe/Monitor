@@ -5,10 +5,10 @@ MONITOR_OBJ = monitor.o\
 			ooarray.o\
 			oodict.o\
 			oolist.o\
-			test_monitor.o
+			monitor_server.o
 
 program: $(MONITOR_OBJ)
-	cc -o monitor $(MONITOR_OBJ) -lxml2 -pedantic -Ansi
+	cc -o monitor $(MONITOR_OBJ) -lzmq -Wall -lxml2 -pedantic -Ansi
 
 clean:
 	rm $(MONITOR_OBJ)

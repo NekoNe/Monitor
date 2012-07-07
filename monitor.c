@@ -24,6 +24,20 @@
 
 
 static int
+Monitor_request_handler(struct Monitor *self,
+                        const char *request,
+                        const char *response,
+                        size_t response_size)
+{
+    xmlDocPtr doc;
+
+
+    doc = xmlReadMemory(request, strlen(request), "request.xml", NULL, 0);
+
+    return OK;
+}
+
+static int
 Monitor_add_topic(struct Monitor *self,
                   char *buffer)
 {
@@ -38,7 +52,7 @@ Monitor_add_topic(struct Monitor *self,
  * them to unbound topics dictionary
  *
  * TODO: function decomposition
- * TODO: do not allocate mame for
+ * TODO: do not allocate mem for
  * names. libxml has already allocated it
  * TODO: check if gotten field has correct
  * syntax(?)
@@ -165,21 +179,6 @@ Monitor_add_topics_xmlDocPtr(struct Monitor *self,
 }
 
 static int
-Monitor_add_topics_from_file(struct Monitor *self,
-                   const char *path,
-                   struct ooDict *topics)
-{
-    xmlDocPtr doc;
-
-    doc = xmlReadFile(path, NULL, 0);
-    if (!doc) return FAIL;
-    /*
-    Monitor_add_topics_xmlDocPtr(self, doc, topics);
-    */
-    return OK;
-}
-
-static int
 Monitor_establish_dependencies(struct Monitor *self,
                                struct ooDict *topics_dict,
                                struct ooList *topics_list)
@@ -195,15 +194,6 @@ Monitor_establish_dependencies(struct Monitor *self,
         printf(">>> Establishing dependencies between topics...\n");
         printf(">>> Topics in array %i \n", topics_list->size);
     }
-    /*
-    iterator = topics_list->head;
-    topic = iterator->data;
-    printf("id %s\n", topic->id);
-
-    iterator = topics_list->next_item(topics_list, iterator);
-    topic = iterator->data;
-    printf("id %s\n", topic->id);
-    */
 
     iterator = topics_list->head;
 
@@ -227,20 +217,7 @@ Monitor_establish_dependencies(struct Monitor *self,
         iterator = topics_list->next_item(topics_list, iterator);
     }
 
-    /*
-    for (i = 0; i < topics_array->size; i++) {
-        topic = topics_array->get_item(topics_array, i);
-        ret = topic->parent_id(topic, id);
-        if (ret != OK) return FAIL;
-
-        parent = topics_dict->get(topics_dict, id);
-        if (!parent) continue;
-
-        topic->parent = parent;
-        ret = parent->add_child(parent, topic);
-        if (!ret) return FAIL;
-    }
-    */
+    /* TODO: free unused topics */
     if (MONITOR_DEBUG_LEVEL_1)
         printf(">>> Establishing dependencies between topics complited.\n");
 
@@ -310,6 +287,7 @@ Monitor_init(struct Monitor *self)
     self->str                       = Monitor_str;
     self->add_topic                 = Monitor_add_topic;
     self->load_topics_from_file     = Monitor_load_topics_from_file;
+    self->request_handler           = Monitor_request_handler;
 
     self->generic_topic->title = "GENERIC";
 
@@ -329,21 +307,12 @@ Monitor_new(struct Monitor **monitor)
 
     memset(self, 0, sizeof(struct Monitor));
 
-
     ret = Topic_new(&generic_topic);
     if (ret != OK) return ret;
 
     self->generic_topic = generic_topic;
 
-    /*
-    generic_topic->id = malloc(TOPIC_ID_SIZE * sizeof(char));
-    if (!generic_topic->id) {
-        ret = NOMEM;
-        goto error;
-    }
-    */
     strcpy(generic_topic->id, GENERIC_TOPIC_ID);
-
 
     ret = Monitor_init(self);
     if (ret != OK) goto error;
