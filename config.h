@@ -1,5 +1,5 @@
 
-enum { OK, FAIL, NOMEM }
+enum { OK, FAIL, NOMEM, SYNTAX_FAIL }
     error_codes;
 
 
@@ -20,12 +20,13 @@ enum { OK, FAIL, NOMEM }
 #endif
 
 
-
 #define MONITOR_DEBUG_LEVEL_1 1
 #define MONITOR_DEBUG_LEVEL_2 1
+#define MONITOR_DEBUG_LEVEL_3 1
 
 #define TOPIC_DEBUG_LEVEL_1 1
 #define TOPIC_DEBUG_LEVEL_2 1
+#define TOPIC_DEBUG_LEVEL_3 0
 
 #define TOPIC_ID_SIZE 12 /* Exmaple "000.000.000\0" */
 #define ID_DIGIT_SIZE 3
@@ -35,5 +36,13 @@ enum { OK, FAIL, NOMEM }
 #define ARRAY_WINDOW_SIZE 10
 #define MAX_NAME_LENGTH 500
 
+#define FUNCTION_NAME_SIZE 20
 
 #define GENERIC_TOPIC_ID "000.000.000"
+
+/**** names of requests ****/
+
+/* returns list of topic's child. like 'ls' but 'lt' =) */
+#define LIST_TOPIC "list_topic"
+
+

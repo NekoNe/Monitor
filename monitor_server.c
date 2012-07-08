@@ -7,9 +7,10 @@
 
 #include "config.h"
 #include "monitor.h"
+#include "topic.h"
 
 
-#define MAX_RESPONSE_SIZE 500
+#define MAX_RESPONSE_SIZE 10000
 
 int main(int const argc,
          const char ** const argv)
@@ -36,6 +37,10 @@ int main(int const argc,
     responder = zmq_socket(context, ZMQ_REP);
     zmq_bind(responder, "tcp://*:5555");
 
+    printf("%d\n", monitor->generic_topic->children_number);
+    printf("%p\n", monitor->generic_topic->children);
+    printf("%s\n", monitor->generic_topic->children[0]->title);
+
     printf(">>> Server started. Waiting for incomming messages...\n");
 
     strcpy(response, "OK");
@@ -45,7 +50,7 @@ int main(int const argc,
         request = s_recv(responder, &msg_size);
         printf(">>> Request: %s\n", request);
 
-        /* monitor->request_handler(monitor, request, response, MAX_RESPONSE_SIZE); */
+        monitor->request_handler(monitor, request, response, MAX_RESPONSE_SIZE);
 
         s_send(responder, response, strlen(response));
 

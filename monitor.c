@@ -22,18 +22,154 @@
  *
  */
 
+static int
+Monitor_request_handler_list_topic_xml(struct Monitor *self,
+                                       struct Topic *topic,
+                                       char *response,
+                                       const size_t response_size)
+{
+    xmlDocPtr doc;
+    xmlNodePtr topic_list_level, topic_level;
+    xmlChar *out;
+    size_t len, i;
 
+    doc = xmlNewDoc("1.0"); /* */
+
+    topic_list_level = xmlNewNode(NULL, "topic_list");
+    xmlNewProp(topic_list_level, "parent", topic->title);
+
+    xmlDocSetRootElement(doc, topic_list_level);
+
+    for (i = 0; i < topic->children_number; i++) {
+        topic_level = xmlNewChild(topic_list_level, NULL, "topic", NULL);
+        xmlNewProp(topic_level, "title", topic->children[i]->title);
+    }
+    xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
+
+    if (len > response_size) return NOMEM;
+    strcpy(response, (char *)out);
+
+    xmlFree(out);
+
+    /* printf("response: %s\n", response); */
+    return OK;
+}
+
+static int
+Monitor_request_handler_list_topic(struct Monitor *self,
+                                   xmlDocPtr doc,
+                                   xmlNodePtr request_level,
+                                   char *response,
+                                   size_t response_size)
+{
+
+    xmlNodePtr topic_level, prev_topic;
+    xmlChar *prop_val;
+
+    struct Topic *topic, *topic_child;
+    size_t prop_size;
+    char *topic_name;
+
+    size_t i;
+
+    if (MONITOR_DEBUG_LEVEL_3)
+        printf(">>> Handling list_topic request...\n");
+
+    topic = self->generic_topic;
+    topic_level = request_level->children;
+
+    while (topic_level) {
+
+        if (strcmp(topic_level->name, "topic")) {
+            topic_level = topic_level->next;
+            continue;
+        }
+        if (!xmlHasProp(topic_level, "title")) {
+            return SYNTAX_FAIL;
+        }
+
+        prop_val = xmlGetProp(topic_level, "title");
+        prop_size = strlen((char *)prop_val);
+        topic_name = malloc(prop_size * sizeof(char));
+        strcpy(topic_name, (char *)prop_val);
+        xmlFree(prop_val);
+
+        if (MONITOR_DEBUG_LEVEL_3)
+            printf(">>> Finding [%s] in [%s] topic...\n", topic_name, topic->title);
+        topic->find_child(topic, topic_name, &topic_child);
+        if (!topic_child) { printf("NOT FOUND\n"); break; }/**/
+        topic = topic_child;
+        topic_level = topic_level->next;
+    }
+
+    if (topic) {
+        return Monitor_request_handler_list_topic_xml(self, topic, response, response_size);
+    }
+
+    return OK;
+}
+
+
+/* TODO: there are some repeated parts of code
+ * maybe I should combine it and make "goto"?*/
 static int
 Monitor_request_handler(struct Monitor *self,
                         const char *request,
-                        const char *response,
+                        char *response,
                         size_t response_size)
 {
-    xmlDocPtr doc;
+    char *func_name;
+    size_t prop_size;
+    int ret;
 
+    xmlDocPtr doc;
+    xmlChar *prop_val;
+    xmlNodePtr request_level;
 
     doc = xmlReadMemory(request, strlen(request), "request.xml", NULL, 0);
 
+    if (MONITOR_DEBUG_LEVEL_1)
+        printf(">>> Parsing xml request...\n");
+
+    request_level = xmlDocGetRootElement(doc);
+
+    while (request_level) {
+        if (strcmp(request_level->name, "request")) {
+            request_level = request_level->next;
+            continue;
+        }
+        if (!xmlHasProp(request_level, "name")) {
+            request_level = request_level->next;
+            continue;
+        }
+
+        prop_val = xmlGetProp(request_level, "name");
+        prop_size = strlen((char *)prop_val);
+        func_name = malloc(prop_size * sizeof(char));
+        strcpy(func_name, (char *)prop_val);
+        xmlFree(prop_val);
+
+        if (!strcmp(func_name, LIST_TOPIC)) {
+
+            if (MONITOR_DEBUG_LEVEL_2)
+                printf(">>> Calling %s function...\n", LIST_TOPIC);
+
+            /* calling target function */
+            ret = Monitor_request_handler_list_topic(self, doc, request_level, response, response_size);
+            if (ret != OK) { return ret; }
+
+            if (func_name) free(func_name);
+            request_level = request_level->next;
+            continue;
+        }
+
+        if (MONITOR_DEBUG_LEVEL_2)
+            printf(">>> Unknown command [%s]\n", func_name);
+
+        if (func_name) free(func_name);
+        request_level = request_level->next;
+    }
+    self->generic_topic->parent = NULL; /*TODO: do not add parent to generic*/
     return OK;
 }
 
@@ -168,8 +304,10 @@ Monitor_add_topics_xmlDocPtr(struct Monitor *self,
         if (!topics_dict->key_exists(topics_dict, topic->id)) {
             topics_dict->set(topics_dict, topic->id, topic);
             topics_list->add(topics_list, topic, NULL);
-        } else
+        } else {
+            /* maybe merge topics with same ids? */
             topic->del(topic);
+        }
         topic = NULL;
         topic_level = topic_level->next;
     }
@@ -203,6 +341,14 @@ Monitor_establish_dependencies(struct Monitor *self,
         ret = topic->parent_id(topic, id);
         if (ret != OK) return FAIL;
 
+        /* generic_topic is not it's parent */
+        /* TODO: make special return code in topic->parent_id for this case */
+        /*
+        if (!strcmp(id, self->generic_topic->id)) {
+            iterator = topics_list->next_item(topics_list, iterator);
+            continue;
+        }
+        */
         if (MONITOR_DEBUG_LEVEL_2)
             printf(">>> Topic's id: %s => parent's id: %s\n", topic->id, id);
 

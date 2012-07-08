@@ -11,21 +11,19 @@ tests = []
 
 test =\
 "<request name = \"list_topic\">\n\
-    <topic title = \"\"/>\n\
 </request>"
 tests.append(test)
 
 test =\
 "<request name = \"list_topic\">\n\
-    <topic title = \"КОНСТИТУЦИОННЫЙ СТРОЙ\"/>\n\
+    <topic title = \"Конституционный строй\"/>\n\
 </request>"
 tests.append(test)
 
 test =\
 "<request name = \"list_topic\">\n\
-    <topic title = \"КОНСТИТУЦИОННЫЙ СТРОЙ\">\n\
-        <topic title = \"Конституция Российской Федерации. Конституции, уставы субъектов Российской Федерации\"/>\n\
-    </topic>\n\
+    <topic title = \"Конституционный строй\"/>\n\
+    <topic title = \"Конституция Российской Федерации. Конституции, уставы субъектов Российской Федерации\"/>\n\
 </request>"
 tests.append(test)
 

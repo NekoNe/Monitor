@@ -7,6 +7,27 @@
 #include "topic.h"
 #include "config.h"
 
+static int
+Topic_find_child(struct Topic *self,
+                 char *name,
+                 struct Topic **child)
+{
+    size_t i;
+    int ret;
+
+    for (i = 0; i < self->children_number; i++) {
+        if (TOPIC_DEBUG_LEVEL_3)
+            printf(">>> Compare %s with %s...\n", name, self->children[i]->title);
+        ret = strcmp(self->children[i]->title, name);
+        if (ret) continue;
+        *child = self->children[i];
+        return OK;
+    }
+    *child = NULL;
+
+    return OK;
+}
+
 /* TODO!!!: do it constants-free i.e.
  * no matter how many digits, digits length etc.
  * */
@@ -45,14 +66,16 @@ Topic_add_child(struct Topic *self,
 
     if (TOPIC_DEBUG_LEVEL_2)
         printf(">>> Adding child <%s> at <%p> \n\tto <%s> at <%p>...\n", child->title, child, self->title, self);
-    new_children = realloc(self->children, self->children_number + 1);
+    new_children = realloc(self->children, (self->children_number + 1) * sizeof(struct Topic *));
     if (!new_children) return NOMEM;
 
+    new_children[self->children_number] = child;
     self->children = new_children;
     self->children_number++;
 
     return OK;
 }
+
 /* TODO: make recoils at NOMEM cases */
 static int
 Topic_add_concept(struct Topic *self,
@@ -74,6 +97,7 @@ Topic_add_concept(struct Topic *self,
     return OK;
 }
 
+/* packing back to xml */
 static int
 Topic_pack(struct Topic *self,
            char *buffer,
@@ -108,7 +132,7 @@ Topic_init(struct Topic *self)
     self->add_concept   = Topic_add_concept;
     self->add_child     = Topic_add_child;
     self->parent_id     = Topic_parent_id;
-
+    self->find_child    = Topic_find_child;
     return OK;
 }
 

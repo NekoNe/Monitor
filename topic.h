@@ -15,6 +15,11 @@ struct Topic
 
     /** interface methods **/
 
+    /* finding topics child by his name */
+    int (*find_child)(struct Topic *self,
+                      char *name,
+                      struct Topic **child);
+
     /* topic to xml-string */
     int (*pack)(struct Topic *self,
                 char *buffer,
