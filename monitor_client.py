@@ -10,28 +10,22 @@ tests = []
 #tests: list_topic
 
 test =\
-"<request>\n\
-    <list_topic>\n\
-        <topic title = \"\"/>\n\
-    </list_topic>\n\
+"<request name = \"list_topic\">\n\
+    <topic title = \"\"/>\n\
 </request>"
 tests.append(test)
 
 test =\
-"<request>\n\
-    <list_topic>\n\
-        <topic title = \"КОНСТИТУЦИОННЫЙ СТРОЙ\"/>\n\
-    </list_topic>\n\
+"<request name = \"list_topic\">\n\
+    <topic title = \"КОНСТИТУЦИОННЫЙ СТРОЙ\"/>\n\
 </request>"
 tests.append(test)
 
 test =\
-"<request>\n\
-    <list_topic>\n\
-        <topic title = \"КОНСТИТУЦИОННЫЙ СТРОЙ\">\n\
-            <topic title = \"Конституция Российской Федерации. Конституции, уставы субъектов Российской Федерации\"/>\n\
-        </topic>\n\
-    </list_topic>\n\
+"<request name = \"list_topic\">\n\
+    <topic title = \"КОНСТИТУЦИОННЫЙ СТРОЙ\">\n\
+        <topic title = \"Конституция Российской Федерации. Конституции, уставы субъектов Российской Федерации\"/>\n\
+    </topic>\n\
 </request>"
 tests.append(test)
 
@@ -40,7 +34,7 @@ tests.append(test)
 def client_start():
     context = zmq.Context()
 
-    print ">>> Connectiong to hello world server..."
+    print ">>> Connectiong to monitor server..."
 
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5555")
