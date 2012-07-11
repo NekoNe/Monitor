@@ -9,6 +9,9 @@ struct Monitor
     /** interface methods **/
 
 
+    int (*distribute_tasks)(struct Monitor *self,
+                            void *sender);
+
     /* delegates request to target function */
     int (*request_handler)(struct Monitor *self,
                           const char *request,

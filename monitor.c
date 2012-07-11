@@ -23,6 +23,14 @@
  */
 
 static int
+Monitor_distribute_tasks(struct Monitor *self,
+                         void *sender)
+{
+    return OK;
+}
+
+
+static int
 Monitor_request_handler_list_topic_xml(struct Monitor *self,
                                        struct Topic *topic,
                                        char *response,
@@ -434,6 +442,7 @@ Monitor_init(struct Monitor *self)
     self->add_topic                 = Monitor_add_topic;
     self->load_topics_from_file     = Monitor_load_topics_from_file;
     self->request_handler           = Monitor_request_handler;
+    self->distribute_tasks          = Monitor_distribute_tasks;
 
     self->generic_topic->title = "GENERIC";
 
