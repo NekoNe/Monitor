@@ -9,7 +9,7 @@
 #include "config.h"
 #include "monitor.h"
 #include "topic.h"
-
+#include "resource.h"
 
 #define MAX_RESPONSE_SIZE 10000
 
@@ -133,6 +133,10 @@ int main(int const argc,
     ret = monitor->load_topics_from_file(monitor, "topics.xml");
     if (ret != OK) return ret;
 
+    /* init resources */
+
+    monitor->resources = malloc(1 * sizeof(struct Resource *));
+    Resource_new(&monitor->resources[0], "http://www.businesspravo.ru", "http://www.businesspravo.ru/Docum/DocumList.html", 0);
 
     ret = pthread_create(&client_service, NULL, monitor_client_service, (void *)monitor);
     if (ret) {
