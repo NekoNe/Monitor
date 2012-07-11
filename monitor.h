@@ -9,13 +9,16 @@ struct Monitor
     /** interface methods **/
 
 
+    int (*receive_result)(struct Monitor *self,
+                          const char *result);
+
     int (*distribute_tasks)(struct Monitor *self,
                             void *sender);
 
     /* delegates request to target function */
     int (*request_handler)(struct Monitor *self,
                           const char *request,
-                          const char *response,
+                          char *response,
                           size_t response_size);
 
     int (*add_topic)(struct Monitor *self,

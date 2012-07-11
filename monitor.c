@@ -23,6 +23,14 @@
  */
 
 static int
+Monitor_receive_result(struct Monitor *self,
+                       const char *result)
+{
+    return OK;
+}
+
+
+static int
 Monitor_distribute_tasks(struct Monitor *self,
                          void *sender)
 {
@@ -443,6 +451,7 @@ Monitor_init(struct Monitor *self)
     self->load_topics_from_file     = Monitor_load_topics_from_file;
     self->request_handler           = Monitor_request_handler;
     self->distribute_tasks          = Monitor_distribute_tasks;
+    self->receive_result            = Monitor_receive_result;
 
     self->generic_topic->title = "GENERIC";
 

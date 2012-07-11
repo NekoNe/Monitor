@@ -40,6 +40,7 @@ void *monitor_client_service(void *arg)
         printf(">>> Request: %s\n", request);
 
         ret = monitor->request_handler(monitor, request, response, MAX_RESPONSE_SIZE);
+        free(request);
         s_send(responder, response, strlen(response));
     }
 
@@ -68,7 +69,41 @@ void *monitor_task_ventilator(void *arg)
         monitor->distribute_tasks(monitor, sender);
     }
 
+    zmq_close(sender);
+    zmq_term(context);
     pthread_exit(NULL);
+    return ;
+}
+
+void *monitor_sink(void *arg)
+{
+    int ret;
+    struct Monitor *monitor;
+
+    void *context;
+    void *receiver;
+
+    char *result;
+    size_t msg_size;
+
+    monitor = (struct Monitor *)arg;
+
+    context = zmq_init(1);
+    receiver = zmq_socket(context, ZMQ_PULL);
+
+    printf(">>> [sink]: Sink is ready. Waiting results from agents...\n");
+
+    while (true) {
+        result = s_recv(receiver, &msg_size);
+        ret = monitor->receive_result(monitor, result);
+
+        free(result);
+    }
+
+    zmq_close(receiver);
+    zmq_term(context);
+    pthread_exit(NULL);
+
     return ;
 }
 
@@ -86,7 +121,7 @@ int main(int const argc,
 
     pthread_t task_ventilator; /* distributes tasks over agents */
     pthread_t client_service; /* handles messages from clients */
-
+    pthread_t sink_service;
 
     /** init monitor **/
 
@@ -110,8 +145,15 @@ int main(int const argc,
         return OK;
     }
 
+    ret = pthread_create(&sink_service, NULL, monitor_sink, (void *)monitor);
+    if (ret) {
+        printf(">>> [init monitor]: ERROR: pthread_create returned %d\n", ret);
+        return OK;
+    }
+
     pthread_join(client_service, NULL);
     pthread_join(task_ventilator, NULL);
+    pthread_join(sink_service, NULL);
 
     return OK;
 }
