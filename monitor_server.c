@@ -54,6 +54,7 @@ void *monitor_task_ventilator(void *arg)
 {
     int ret;
     struct Monitor *monitor;
+    char *msg;
 
     void *context;
     void *sender;
@@ -62,12 +63,15 @@ void *monitor_task_ventilator(void *arg)
 
     context = zmq_init(1);
     sender = zmq_socket(context, ZMQ_PUSH);
+    zmq_bind(sender, "tcp://*:5569");
 
+    printf(">>> [task ventilator]: Press Enter when the agents are ready: ");
+    getchar();
     printf(">>> [task ventilator]: Task ventilator is ready. Sending tasks for agents...\n");
+    /* while (true) { */
+    monitor->distribute_tasks(monitor, sender);
 
-    while (true) {
-        monitor->distribute_tasks(monitor, sender);
-    }
+        /* } */
 
     zmq_close(sender);
     zmq_term(context);
@@ -90,6 +94,7 @@ void *monitor_sink(void *arg)
 
     context = zmq_init(1);
     receiver = zmq_socket(context, ZMQ_PULL);
+    zmq_bind(receiver, "tcp://*:5558");
 
     printf(">>> [sink]: Sink is ready. Waiting results from agents...\n");
 
@@ -136,7 +141,9 @@ int main(int const argc,
     /* init resources */
 
     monitor->resources = malloc(1 * sizeof(struct Resource *));
-    Resource_new(&monitor->resources[0], "http://www.businesspravo.ru", "http://www.businesspravo.ru/Docum/DocumList.html", 0);
+    Resource_new(&monitor->resources[0], "businesspravo", "http://www.businesspravo.ru/Docum/DocumList.html", 0);
+    monitor->resources_number = 1;
+
 
     ret = pthread_create(&client_service, NULL, monitor_client_service, (void *)monitor);
     if (ret) {

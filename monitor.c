@@ -3,11 +3,15 @@
 #include <string.h>
 
 #include <libxml/parser.h>
+#include <zmq.h>
+
+#include "zhelpers.h"
 
 #include "oodict.h"
 #include "ooarray.h"
 #include "oolist.h"
 
+#include "resource.h"
 #include "monitor.h"
 #include "topic.h"
 #include "config.h"
@@ -29,14 +33,60 @@ Monitor_receive_result(struct Monitor *self,
     return OK;
 }
 
+static int
+Monitor_pack_task(struct Monitor *self,
+                  struct Resource *resource,
+                  char **task)
+{
+    xmlDocPtr doc;
+    xmlNodePtr task_level, resource_level;
+    xmlChar *out;
+    size_t len;
+
+    doc = xmlNewDoc("1.0");
+
+    task_level = xmlNewNode(NULL, "task");
+
+    xmlDocSetRootElement(doc, task_level);
+
+    resource_level = xmlNewChild(task_level, NULL, "resource", NULL);
+    xmlNewProp(resource_level, "title", resource->title);
+    xmlNewProp(resource_level, "url", resource->url);
+
+    xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
+
+    *task = malloc(strlen((char *)out) * sizeof(char));
+    if (!task) return NOMEM;
+
+    strcpy(*task, (char *)out);
+
+    xmlFree(out);
+
+    return OK;
+
+}
 
 static int
 Monitor_distribute_tasks(struct Monitor *self,
                          void *sender)
 {
+    size_t i;
+    char *task;
+
+    for (i = 0; i < self->resources_number; i++) {
+        printf("test\n");
+        Monitor_pack_task(self, self->resources[i], &task);
+
+        if (MONITOR_DEBUG_LEVEL_1)
+            printf(">>> [task ventilator]: task had been packed:\n%s\n", task);
+
+         s_send(sender, task, strlen(task));
+
+         if (MONITOR_DEBUG_LEVEL_1)
+            printf(">>> [task ventilator]: Task had been send.\n");
+    }
     return OK;
 }
-
 
 static int
 Monitor_request_handler_list_topic_xml(struct Monitor *self,

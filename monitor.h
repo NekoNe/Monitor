@@ -6,6 +6,9 @@ struct Monitor
 
     size_t agents_number;
 
+    struct Resource **resources;
+    size_t resources_number;
+
     /** interface methods **/
 
 
