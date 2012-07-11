@@ -5,10 +5,15 @@ MONITOR_OBJ = monitor.o\
 			ooarray.o\
 			oodict.o\
 			oolist.o\
+			resource.o\
 			monitor_server.o
 
-program: $(MONITOR_OBJ)
+AGENT_OBJ = agent.o\
+			agent_server.o
+
+program: $(MONITOR_OBJ) $(AGENT_OBJ)
 	cc -o monitor $(MONITOR_OBJ) -lzmq -Wall -lxml2 -pedantic -Ansi
+	cc -o agent $(AGENT_OBJ) -lzmq -Wall -lxml2 -pedantic -Ansi
 
 clean:
-	rm $(MONITOR_OBJ)
+	rm -rf *.o
