@@ -28,6 +28,9 @@ enum { OK, FAIL, NOMEM, SYNTAX_FAIL }
 #define TOPIC_DEBUG_LEVEL_2 1
 #define TOPIC_DEBUG_LEVEL_3 0
 
+#define AGENT_DEBUG_LEVEL_1 1
+#define AGENT_DEBUG_LEVEL_2 1
+
 #define TOPIC_ID_SIZE 12 /* Exmaple "000.000.000\0" */
 #define ID_DIGIT_SIZE 3
 #define ID_DIGIT_NUMBER 3
