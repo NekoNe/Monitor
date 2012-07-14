@@ -46,7 +46,7 @@ Agent_write_memory(void *contents,
 static int
 Agent_walk_through_htmlTree(struct Agent *self,
                       xmlNodePtr node,
-                      char *url,
+                      const char *url,
                       char *branch)
 {
     xmlNodePtr child;
@@ -100,8 +100,10 @@ Agent_walk_through_htmlTree(struct Agent *self,
 
             printf("href = %s | gotten new_url = %s ", property, new_url);
             if (strstr(new_url, branch)) {
-                printf(" [[ADDED]]\n");
-                self->unwatched->set(self->unwatched, new_url, NULL);
+                if (!self->watched->key_exists(self->watched, new_url)) {
+                    printf(" [[ADDED]]\n");
+                    self->unwatched->set(self->unwatched, new_url, NULL);
+                }
             } else {
                 printf(" [[NOT ADDED]]\n");
             }
@@ -120,7 +122,7 @@ Agent_walk_through_htmlTree(struct Agent *self,
 static int
 Agent_parse_page(struct Agent *self,
                  char *buffer,
-                 char *url,
+                 const char *url,
                  char *branch)
 {
     htmlDocPtr doc;
@@ -142,8 +144,8 @@ Agent_parse_page(struct Agent *self,
 
 static int
 Agent_open_page(struct Agent *self,
-               char *url,
-               char *branch)
+                const char *url,
+                char *branch)
 {
     CURL *curl_handler;
     CURLcode res;
@@ -204,6 +206,7 @@ Agent_crawl_resource(struct Agent *self,
         printf(">>> [agent]: URL <%s> has been added to unwatched\n", url);
 
     while (true) {
+        self->unwatched->rewind(self->unwatched);
         self->unwatched->next_item(self->unwatched, &key, &val);
         if (!key) break;
 
