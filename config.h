@@ -31,6 +31,8 @@ enum { OK, FAIL, NOMEM, SYNTAX_FAIL }
 #define AGENT_DEBUG_LEVEL_1 1
 #define AGENT_DEBUG_LEVEL_2 1
 
+#define AGENT_USER_CONTROL_1 0
+
 #define TOPIC_ID_SIZE 12 /* Exmaple "000.000.000\0" */
 #define ID_DIGIT_SIZE 3
 #define ID_DIGIT_NUMBER 3
@@ -38,9 +40,8 @@ enum { OK, FAIL, NOMEM, SYNTAX_FAIL }
 
 #define ARRAY_WINDOW_SIZE 10
 #define MAX_NAME_LENGTH 500
-
 #define FUNCTION_NAME_SIZE 20
-
+#define MAX_URL_SIZE 200
 #define GENERIC_TOPIC_ID "000.000.000"
 
 /**** names of requests ****/

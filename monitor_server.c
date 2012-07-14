@@ -141,7 +141,7 @@ int main(int const argc,
     /* init resources */
 
     monitor->resources = malloc(1 * sizeof(struct Resource *));
-    Resource_new(&monitor->resources[0], "businesspravo", "http://www.businesspravo.ru/Docum/DocumList.html", 0);
+    Resource_new(&monitor->resources[0], "businesspravo", "http://www.businesspravo.ru/Docum", 0);
     monitor->resources_number = 1;
 
 
