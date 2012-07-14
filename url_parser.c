@@ -1,6 +1,8 @@
 /*
  * NOTE: this is temporary unsafe solution
- * TODO: cool safe url parsing library
+ * with magic numbers
+ *
+ * TODO: do cool and safe url parsing library
  *
  * unsafe lies in the fact that I expect
  * there is always enough memory. User must
@@ -20,8 +22,8 @@ int url_is_absolute(char *url)
     char *pointer;
 
     pointer = strstr(url, "://");
-    if (pointer) return 1;
-    return 0;
+    if (pointer) return true;
+    return false;
 }
 
 int url_get_folder(char *url_in, char *url_out)
@@ -34,12 +36,11 @@ int url_get_folder(char *url_in, char *url_out)
     if (!strchr(pointer, '.')) {
         pointer = url_out + strlen(url_out) - 1;
         if (*pointer == '/') *pointer = '\0';
-        return 0;
+        return OK;
     }
-
     *pointer = '\0';
 
-    return 0;
+    return OK;
 }
 
 int url_is_file(char *url)
@@ -48,8 +49,8 @@ int url_is_file(char *url)
 
     pointer = strrchr(url, '/');
 
-    if (!strchr(pointer, '.')) return 0;
-    return 1;
+    if (!strchr(pointer, '.')) return false;
+    return true;
 }
 
 char *url_strnchr(char *str, char symb, size_t n)
@@ -71,14 +72,13 @@ int url_get_full_path(char *folder, char *rel_path, char *result)
     strcpy(result, folder);
     if (rel_path[0] == '/') {
         pointer = url_strnchr(result, '/', 2); /*magic const. num of // after scheme*/
-        if (!pointer) return 1;
+        if (!pointer) return FAIL;
         pointer++;
         while ((*pointer != '\0') && (*pointer != '/')) pointer++;
 
         strcpy(pointer, rel_path);
-        return 0;
+        return OK;
     }
-
     pointer = result + strlen(folder);
     *pointer = '/';
 
@@ -90,10 +90,8 @@ int url_get_full_path(char *folder, char *rel_path, char *result)
         pointer--;
         while ((pointer > result) && (*pointer != '/')) pointer--;
     }
-
     strcpy(pointer + 1, rel_path);
-
-    return 0;
+    return OK;
 }
 
 
