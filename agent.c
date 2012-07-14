@@ -139,6 +139,7 @@ Agent_parse_page(struct Agent *self,
     Agent_walk_through_htmlTree(self, root, url, branch);
     printf("root's name: %s\n", root->name);
 
+    xmlFreeDoc(doc);
     return OK;
 }
 
@@ -182,6 +183,8 @@ Agent_open_page(struct Agent *self,
     }
 
     Agent_parse_page(self, chunk.buffer, url, branch);
+
+    free(chunk.buffer);
 
     return OK;
 }

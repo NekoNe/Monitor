@@ -93,5 +93,3 @@ int url_get_full_path(char *folder, char *rel_path, char *result)
     strcpy(pointer + 1, rel_path);
     return OK;
 }
-
-

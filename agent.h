@@ -1,6 +1,8 @@
 
 struct Agent
 {
+    struct ooDict *unwatched;
+    struct ooDict *watched;
 
     /** public methods **/
 
