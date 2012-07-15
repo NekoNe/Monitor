@@ -22,7 +22,7 @@ void *monitor_client_service(void *arg)
     void *context;
     void *responder;
     char *request;
-    char response[MAX_RESPONSE_SIZE];
+    char *response;
     size_t msg_size;
 
     monitor = (struct Monitor *)arg;
@@ -33,15 +33,14 @@ void *monitor_client_service(void *arg)
 
     printf(">>> [client_service]: Server started. Waiting for incomming messages...\n");
 
-    strcpy(response, "OK");
-
     while (true) {
         request = s_recv(responder, &msg_size);
         printf(">>> Request: %s\n", request);
 
-        ret = monitor->request_handler(monitor, request, response, MAX_RESPONSE_SIZE);
+        ret = monitor->request_handler(monitor, request, &response);
         free(request);
-        s_send(responder, response, strlen(response));
+        s_send(responder, response, strlen(response) + 1);
+        free(response);
     }
 
     zmq_close(responder);

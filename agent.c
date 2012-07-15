@@ -7,6 +7,7 @@
 #include <zmq.h>
 
 #include "agent.h"
+#include "topic.h"
 #include "config.h"
 #include "oodict.h"
 
@@ -47,11 +48,50 @@ Agent_write_memory(void *contents,
 }
 
 static int
+Agent_pack_response(struct Agent *self,
+                    const char *url,
+                    struct Topic **topics,
+                    size_t topics_num,
+                    char **response)
+{
+    xmlDocPtr doc;
+    xmlNodePtr report_level, topic_level;
+    xmlChar *out;
+    size_t len;
+
+    size_t i;
+
+
+    doc = xmlNewDoc("1.0");
+
+    report_level = xmlNewNode(NULL, "report");
+    xmlNewProp(report_level, "url", url);
+    xmlDocSetRootElement(doc, report_level);
+
+    for (i = 0; i < topics_num; i++) {
+        topic_level = xmlNewChild(report_level, NULL, "topic", NULL);
+        xmlNewProp(topic_level, "id", topics[i]->id);
+        xmlNewProp(topic_level, "weight", "true");
+    }
+
+    xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
+
+    *response = malloc((strlen((char *)out) + 1) * sizeof(char));
+    if (!*response) return NOMEM; /* TODO: free in caller */
+
+    strcpy(*response, (char *)out);
+
+    xmlFree(out);
+    xmlFreeDoc(doc);
+
+    return OK;
+}
+static int
 Agent_walk_through_htmlTree(struct Agent *self,
-                      xmlNodePtr node,
-                      const char *url,
-                      char *branch,
-                      void *sender)
+                            xmlNodePtr node,
+                            const char *url,
+                            char *branch,
+                            void *sender)
 {
     xmlNodePtr child;
     xmlChar *tmp;
@@ -128,10 +168,14 @@ Agent_parse_page(struct Agent *self,
                  char *buffer,
                  const char *url,
                  char *branch,
-                 void *sender)
+                 void *sender,
+                 struct Topic **topics,
+                 size_t topics_num)
 {
     htmlDocPtr doc;
     xmlNodePtr root;
+
+    char *response;
 
     doc = htmlReadMemory(buffer, strlen(buffer), url, NULL, HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING | HTML_PARSE_NONET);
 
@@ -142,8 +186,13 @@ Agent_parse_page(struct Agent *self,
 
     root = xmlDocGetRootElement(doc);
     Agent_walk_through_htmlTree(self, root, url, branch, sender);
-    /* printf("root's name: %s\n", root->name); */
-    s_send(sender, "OK", strlen("OK") + 1);
+
+    Agent_pack_response(self, url, topics, topics_num, &response);
+
+    s_send(sender, response, strlen(response) + 1);
+    if (AGENT_DEBUG_LEVEL_1)
+        printf(">>> [Agent]: response has been send:\n%s\n", response);
+    if (response) free(response);
 
     xmlFreeDoc(doc);
     return OK;
@@ -153,7 +202,9 @@ static int
 Agent_open_page(struct Agent *self,
                 const char *url,
                 char *branch,
-                void *sender)
+                void *sender,
+                struct Topic **topics,
+                size_t topics_num)
 {
     CURL *curl_handler;
     CURLcode res;
@@ -186,10 +237,10 @@ Agent_open_page(struct Agent *self,
 
     if (res != CURLE_OK) {
         if (AGENT_DEBUG_LEVEL_1) printf(">>> [agent]: curl error: %s\n", error_buffer);
-        return FAIL; /* TODO: free mem */
+        return FAIL; /* TODO: free mem */ /* TODO: make 1 fail handle */
     }
 
-    Agent_parse_page(self, chunk.buffer, url, branch, sender);
+    Agent_parse_page(self, chunk.buffer, url, branch, sender, topics, topics_num);
 
     free(chunk.buffer);
 
@@ -200,7 +251,9 @@ static int
 Agent_crawl_resource(struct Agent *self,
                      char *title,
                      char *url,
-                     void *sender)
+                     void *sender,
+                     struct Topic **topics,
+                     size_t topics_num)
 {
     const char *key;
     void *val;
@@ -225,7 +278,7 @@ Agent_crawl_resource(struct Agent *self,
             printf(">>> [agent]: URL <%s> has been gotten from unwatched\n", key);
 
         /* parse page */
-        Agent_open_page(self, key, branch, sender);
+        Agent_open_page(self, key, branch, sender, topics, topics_num);
 
         self->watched->set(self->watched, key, NULL);
         self->unwatched->remove(self->unwatched, key);
@@ -241,14 +294,22 @@ Agent_request_handler(struct Agent *self,
                       void *sender)
 {
     xmlDocPtr doc;
-    xmlNodePtr task_level, resource_level;
+    xmlNodePtr task_level, resource_level, topic_level;
     xmlChar *tmp;
 
     char *title;
     char *url;
 
-    int ret;
+    struct Topic **topics, **new_topics;
+    size_t topics_num;
+    struct Topic *topic;
 
+    int ret;
+    size_t i;
+
+
+    new_topics = NULL; topics = NULL;
+    topics_num = 0;
 
     doc = xmlReadMemory(request, strlen(request), "request.xml", NULL, 0);
 
@@ -264,6 +325,7 @@ Agent_request_handler(struct Agent *self,
         }
         resource_level = task_level->children;
 
+        /* TODO: write it simpler */
         while (resource_level) {
             if (strcmp(resource_level->name, "resource")) {
                 resource_level = resource_level->next;
@@ -288,19 +350,66 @@ Agent_request_handler(struct Agent *self,
             if (!url) return NOMEM; /* goto... */
             strcpy(url, (char *)tmp);
             xmlFree(tmp);
-
-            /* func call */
-            if (AGENT_DEBUG_LEVEL_2)
-                printf(">>> [agent]: Arguments has gotten: resource title = %s; url = %s\n",\
-                        title, url);
-
-            ret = Agent_crawl_resource(self, title, url, sender);
-            if (ret != OK) return ret; /* goto... */
-
-            if (title) free(title);
-            if (url) free(url);
             break;
         }
+
+        /* getting topics list */
+
+        topic_level = resource_level->next;
+        while (topic_level) {
+            if(strcmp(topic_level->name, "topic")) {
+                topic_level = topic_level->next;
+                continue;
+            }
+            if (!xmlHasProp(topic_level, "id")) {
+                topic_level = topic_level->next;
+                continue;
+            }
+            if (!xmlHasProp(topic_level, "title")) {
+                topic_level = topic_level->next;
+                continue;
+            }
+
+            ret = Topic_new(&topic, false);
+            if (ret != OK) return ret;
+
+            tmp = xmlGetProp(topic_level, "id");
+            strcpy(topic->id, (char *)tmp);
+            xmlFree(tmp);
+
+            tmp = xmlGetProp(topic_level, "title");
+            strcpy(topic->title, (char *)tmp);
+            xmlFree(tmp);
+
+
+
+            new_topics = NULL;
+            new_topics = realloc(topics, (topics_num + 1) * sizeof(struct Topic *));
+            if (!new_topics) { return NOMEM; }
+
+            topics = new_topics;
+            topics[topics_num] = topic;
+            topics_num++;
+
+            topic_level = topic_level->next;
+        }
+
+        /* func call */
+        if (AGENT_DEBUG_LEVEL_2) {
+            printf(">>> [agent]: Arguments has gotten: resource title = %s; url = %s\n",\
+                    title, url);
+            for (i = 0; i < topics_num; i++) {
+                printf(">>> [agent]: Topic's title = %s; id = %s\n",\
+                        topics[i]->title, topics[i]->id);
+            }
+        }
+
+        ret = Agent_crawl_resource(self, title, url, sender, topics, topics_num);
+        if (ret != OK) return ret; /* goto... */
+
+        if (title) free(title);
+        if (url) free(url);
+
         break;
     }
 

@@ -6,6 +6,8 @@ struct Monitor
 
     size_t agents_number;
 
+    struct ooDict *topics;
+
     struct Resource **resources;
     size_t resources_number;
 
@@ -21,8 +23,7 @@ struct Monitor
     /* delegates request to target function */
     int (*request_handler)(struct Monitor *self,
                           const char *request,
-                          char *response,
-                          size_t response_size);
+                          char **response);
 
     int (*add_topic)(struct Monitor *self,
                      char *buffer);

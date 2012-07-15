@@ -5,7 +5,11 @@
 #include <libxml/parser.h>
 
 #include "topic.h"
+#include "oodict.h"
 #include "config.h"
+
+#define DICT_INIT_SIZE 1000
+
 
 static int
 Topic_find_child(struct Topic *self,
@@ -138,7 +142,7 @@ Topic_init(struct Topic *self)
 
 /* constructor */
 extern int
-Topic_new(struct Topic **topic)
+Topic_new(struct Topic **topic, int has_documents_dict)
 {
     int ret;
     struct Topic *self;
@@ -158,6 +162,11 @@ Topic_new(struct Topic **topic)
     if(!self->title) {
         ret = NOMEM;
         goto error;
+    }
+
+    if (has_documents_dict) {
+        ret = ooDict_new(&self->documents, DICT_INIT_SIZE);
+        if (ret != OK) goto error;
     }
 
     ret = Topic_init(self);

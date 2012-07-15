@@ -30,20 +30,108 @@ static int
 Monitor_receive_result(struct Monitor *self,
                        const char *result)
 {
+    xmlDocPtr doc;
+    xmlNodePtr report_level, topic_level;
+    xmlChar *tmp;
+
+    char *url;
+    char *id;
+    char *weight;
+
+    struct Topic *topic;
+
+
     if (MONITOR_DEBUG_LEVEL_3)
         printf(">>> [Monitor]: Received result from [Agent]: \n%s\n", result);
+
+    doc = xmlReadMemory(result, strlen(result), "result.xml", NULL, 0);
+
+    report_level = xmlDocGetRootElement(doc);
+
+    while (report_level) {
+        if (strcmp(report_level->name, "report")) {
+            report_level = report_level->next;
+            continue;
+        }
+        if (!xmlHasProp(report_level, "url")) {
+            report_level = report_level->next;
+            continue;
+        }
+        tmp = xmlGetProp(report_level, "url");
+        url = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+        if (!url) return NOMEM;
+        strcpy(url, (char *)tmp);
+        xmlFree(tmp);
+
+        break;
+    }
+    topic_level = report_level->children;
+
+    while (topic_level) {
+        if (strcmp(topic_level->name, "topic")) {
+            topic_level = topic_level->next;
+            continue;
+        }
+        if (!xmlHasProp(topic_level, "id")) {
+            topic_level = topic_level->next;
+            continue;
+        }
+        if (!xmlHasProp(topic_level, "weight")) {
+            topic_level = topic_level->next;
+            continue;
+        }
+        tmp = xmlGetProp(topic_level, "weight");
+        weight = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+        if (!weight) return NOMEM;
+        strcpy(weight, (char *)tmp);
+        xmlFree(tmp);
+
+        if (strcmp(weight, "true")) {
+            free(weight);
+            topic_level = topic_level->next;
+            continue;
+        }
+
+        tmp = xmlGetProp(topic_level, "id");
+        id = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+        if (!id) return NOMEM;
+        strcpy(id, (char *)tmp);
+        xmlFree(tmp);
+
+        if (!self->topics->key_exists(self->topics, id)) {
+            if (MONITOR_DEBUG_LEVEL_3)
+                printf(">>> [Monitor]: topic with id = %s doesn't exist.\n", id);
+            free(weight);
+            free(id);
+            topic_level = topic_level->next;
+            continue;
+        }
+
+        topic = self->topics->get(self->topics, id);
+        if (!topic->documents->key_exists(topic->documents, url))
+            topic->documents->set(topic->documents, url, NULL);
+
+        topic_level = topic_level->next;
+    }
+
+    free(url);
     return OK;
 }
 
+/* TODO: topic = topics[i];*/
+/* NOTE: this function allocates mem char **task */
 static int
 Monitor_pack_task(struct Monitor *self,
                   struct Resource *resource,
+                  struct Topic **topics,
+                  size_t topics_num,
                   char **task)
 {
     xmlDocPtr doc;
-    xmlNodePtr task_level, resource_level;
+    xmlNodePtr task_level, resource_level, topic_level, concept_level;
     xmlChar *out;
     size_t len;
+    size_t i, j;
 
     doc = xmlNewDoc("1.0");
 
@@ -55,14 +143,26 @@ Monitor_pack_task(struct Monitor *self,
     xmlNewProp(resource_level, "title", resource->title);
     xmlNewProp(resource_level, "url", resource->url);
 
+    for (i = 0; i < topics_num; i++) {
+        topic_level = xmlNewChild(task_level, NULL, "topic", NULL);
+        xmlNewProp(topic_level, "id", topics[i]->id);
+        xmlNewProp(topic_level, "title", topics[i]->title);
+
+        for (j = 0; j < topics[i]->concepts_number; j++) {
+            concept_level = xmlNewChild(topic_level, NULL, "concept", NULL);
+            xmlNewProp(concept_level, "name", topics[i]->concepts[j]);
+        }
+    }
+
     xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
 
     *task = malloc((strlen((char *)out) + 1) * sizeof(char));
-    if (!task) return NOMEM;
+    if (!*task) return NOMEM; /* TODO: free in caller */
 
     strcpy(*task, (char *)out);
 
     xmlFree(out);
+    xmlFreeDoc(doc);
 
     return OK;
 
@@ -72,128 +172,128 @@ static int
 Monitor_distribute_tasks(struct Monitor *self,
                          void *sender)
 {
-    size_t i;
+    /* NOTE: tmp solution sends only 1 task */
+
+    struct Topic **chain;
     char *task;
+    int res;
+    size_t num = 4; /* tmp const*/
+    size_t i;
 
-    for (i = 0; i < self->resources_number; i++) {
-        printf("test\n");
-        Monitor_pack_task(self, self->resources[i], &task);
 
-        if (MONITOR_DEBUG_LEVEL_1)
-            printf(">>> [task ventilator]: task had been packed:\n%s\n", task);
+    chain = malloc(num * sizeof(struct Topic *));
+    if (!chain) return NOMEM; /* TODO: free mem */
 
-         s_send(sender, task, strlen(task));
+    chain[0] = self->topics->get(self->topics, "000.000.000");
+    chain[1] = self->topics->get(self->topics, "010.000.000");
+    chain[2] = self->topics->get(self->topics, "010.010.000");
+    chain[3] = self->topics->get(self->topics, "010.010.010");
 
-         if (MONITOR_DEBUG_LEVEL_1)
-            printf(">>> [task ventilator]: Task had been send.\n");
-    }
+    printf("%s\n", chain[0]->title);
+    printf("%s\n", chain[1]->title);
+    printf("%s\n", chain[2]->title);
+    printf("%s\n", chain[3]->title);
+
+    Monitor_pack_task(self, self->resources[0], chain, num, &task);
+
+    if (MONITOR_DEBUG_LEVEL_1)
+        printf(">>> [task ventilator]: task had been packed:\n%s\n", task);
+
+    s_send(sender, task, strlen(task));
+
+    if (MONITOR_DEBUG_LEVEL_1)
+        printf(">>> [task ventilator]: Task had been send.\n");
+
     return OK;
 }
 
 static int
-Monitor_request_handler_list_topic_xml(struct Monitor *self,
-                                       struct Topic *topic,
-                                       char *response,
-                                       const size_t response_size)
+Monitor_pack_docs_xml(struct Monitor *self,
+                      char *id,
+                      char **response)
 {
+    struct Topic *topic;
+    const char *key;
+    void *val;
+    size_t len;
+
     xmlDocPtr doc;
-    xmlNodePtr topic_list_level, topic_level;
+    xmlNodePtr docs_level, url_level;
     xmlChar *out;
-    size_t len, i;
 
-    doc = xmlNewDoc("1.0"); /* */
+    int ret;
 
-    topic_list_level = xmlNewNode(NULL, "topic_list");
-    xmlNewProp(topic_list_level, "parent", topic->title);
+    ret = OK;
+    if (!self->topics->key_exists(self->topics, id)) return FAIL;
+    topic = self->topics->get(self->topics, id);
+    topic->documents->rewind(topic->documents);
 
-    xmlDocSetRootElement(doc, topic_list_level);
+    doc = xmlNewDoc("1.0");
+    docs_level = xmlNewNode(NULL, "docs");
+    xmlDocSetRootElement(doc, docs_level);
 
-    for (i = 0; i < topic->children_number; i++) {
-        topic_level = xmlNewChild(topic_list_level, NULL, "topic", NULL);
-        xmlNewProp(topic_level, "title", topic->children[i]->title);
+    while (true) {
+        topic->documents->next_item(topic->documents, &key, &val);
+        if (!key) break;
+
+        url_level = xmlNewChild(docs_level, NULL, "a", NULL);
+        xmlNewProp(url_level, "href", key);
+        xmlNodeSetContent(url_level, key);
     }
     xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
 
-    if (len > response_size) return NOMEM;
-    strcpy(response, (char *)out);
+    *response = malloc((strlen((char *)out) + 1) * sizeof(char));
+    if (!*response) return NOMEM; /* TODO: free in caller & free mem above */
 
+    strcpy(*response, (char *)out);
+    response[strlen((char *)out)] = '\0';
     xmlFree(out);
+    xmlFreeDoc(doc);
 
-    /* printf("response: %s\n", response); */
     return OK;
 }
 
 static int
-Monitor_request_handler_list_topic(struct Monitor *self,
-                                   xmlDocPtr doc,
-                                   xmlNodePtr request_level,
-                                   char *response,
-                                   size_t response_size)
+Monitor_show_docs(struct Monitor *self,
+                  xmlNodePtr request_level,
+                  char **response)
 {
+    xmlChar *tmp;
 
-    xmlNodePtr topic_level, prev_topic;
-    xmlChar *prop_val;
+    char *id;
+    int ret;
 
-    struct Topic *topic, *topic_child;
-    size_t prop_size;
-    char *topic_name;
 
-    size_t i;
+    ret = OK;
+    if (!xmlHasProp(request_level, "id"))
+        return FAIL;
 
-    if (MONITOR_DEBUG_LEVEL_3)
-        printf(">>> Handling list_topic request...\n");
+    tmp = xmlGetProp(request_level, "id");
+    id = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+    if (!id) { ret = NOMEM; goto monitor_show_docs_exit; }
 
-    topic = self->generic_topic;
-    topic_level = request_level->children;
+    strcpy(id, (char *)tmp);
 
-    while (topic_level) {
+    ret = Monitor_pack_docs_xml(self, id, response);
 
-        if (strcmp(topic_level->name, "topic")) {
-            topic_level = topic_level->next;
-            continue;
-        }
-        if (!xmlHasProp(topic_level, "title")) {
-            return SYNTAX_FAIL;
-        }
-
-        prop_val = xmlGetProp(topic_level, "title");
-        prop_size = strlen((char *)prop_val);
-        topic_name = malloc((prop_size + 1) * sizeof(char));
-        strcpy(topic_name, (char *)prop_val);
-        xmlFree(prop_val);
-
-        if (MONITOR_DEBUG_LEVEL_3)
-            printf(">>> Finding [%s] in [%s] topic...\n", topic_name, topic->title);
-        topic->find_child(topic, topic_name, &topic_child);
-        if (!topic_child) { printf("NOT FOUND\n"); break; }/**/
-        topic = topic_child;
-        topic_level = topic_level->next;
-    }
-
-    if (topic) {
-        return Monitor_request_handler_list_topic_xml(self, topic, response, response_size);
-    }
-
-    return OK;
+monitor_show_docs_exit:
+    if (tmp) xmlFree(tmp);
+    if (id) free(id);
+    return ret;
 }
 
-
-/* TODO: there are some repeated parts of code
- * maybe I should combine it and make "goto"?*/
 static int
 Monitor_request_handler(struct Monitor *self,
                         const char *request,
-                        char *response,
-                        size_t response_size)
+                        char **response)
 {
-    char *func_name;
-    size_t prop_size;
-    int ret;
-
     xmlDocPtr doc;
-    xmlChar *prop_val;
     xmlNodePtr request_level;
 
+    int ret;
+
+
+    ret = OK;
     doc = xmlReadMemory(request, strlen(request), "request.xml", NULL, 0);
 
     if (MONITOR_DEBUG_LEVEL_1)
@@ -201,44 +301,15 @@ Monitor_request_handler(struct Monitor *self,
 
     request_level = xmlDocGetRootElement(doc);
 
-    while (request_level) {
-        if (strcmp(request_level->name, "request")) {
-            request_level = request_level->next;
-            continue;
-        }
-        if (!xmlHasProp(request_level, "name")) {
-            request_level = request_level->next;
-            continue;
-        }
-
-        prop_val = xmlGetProp(request_level, "name");
-        prop_size = strlen((char *)prop_val);
-        func_name = malloc((prop_size + 1) * sizeof(char));
-        strcpy(func_name, (char *)prop_val);
-        xmlFree(prop_val);
-
-        if (!strcmp(func_name, LIST_TOPIC)) {
-
-            if (MONITOR_DEBUG_LEVEL_2)
-                printf(">>> Calling %s function...\n", LIST_TOPIC);
-
-            /* calling target function */
-            ret = Monitor_request_handler_list_topic(self, doc, request_level, response, response_size);
-            if (ret != OK) { return ret; }
-
-            if (func_name) free(func_name);
-            request_level = request_level->next;
-            continue;
-        }
-
-        if (MONITOR_DEBUG_LEVEL_2)
-            printf(">>> Unknown command [%s]\n", func_name);
-
-        if (func_name) free(func_name);
-        request_level = request_level->next;
+    if (strcmp(request_level->name, "show_docs") == 0) {
+        ret = Monitor_show_docs(self, request_level, response);
+        goto monitor_request_handler_exit;
     }
-    self->generic_topic->parent = NULL; /*TODO: do not add parent to generic*/
-    return OK;
+
+    xmlFreeDoc(doc);
+
+monitor_request_handler_exit:
+    return ret;
 }
 
 static int
@@ -265,7 +336,6 @@ Monitor_add_topic(struct Monitor *self,
 static int
 Monitor_add_topics_xmlDocPtr(struct Monitor *self,
                              xmlDocPtr doc,
-                             struct ooDict *topics_dict,
                              struct ooList *topics_list)
 {
     int ret;
@@ -295,7 +365,7 @@ Monitor_add_topics_xmlDocPtr(struct Monitor *self,
             topic_level = topic_level->next;
             continue;
         }
-        ret = Topic_new(&topic);
+        ret = Topic_new(&topic, true);
         if (ret != OK) return ret;
 
         tmp = xmlGetProp(topic_level, "id");
@@ -369,8 +439,8 @@ Monitor_add_topics_xmlDocPtr(struct Monitor *self,
             concept_level = concept_level->next;
         }
 
-        if (!topics_dict->key_exists(topics_dict, topic->id)) {
-            topics_dict->set(topics_dict, topic->id, topic);
+        if (!self->topics->key_exists(self->topics, topic->id)) {
+            self->topics->set(self->topics, topic->id, topic);
             topics_list->add(topics_list, topic, NULL);
         } else {
             /* maybe merge topics with same ids? */
@@ -386,7 +456,6 @@ Monitor_add_topics_xmlDocPtr(struct Monitor *self,
 
 static int
 Monitor_establish_dependencies(struct Monitor *self,
-                               struct ooDict *topics_dict,
                                struct ooList *topics_list)
 {
     struct Topic *topic, *parent;
@@ -420,7 +489,7 @@ Monitor_establish_dependencies(struct Monitor *self,
         if (MONITOR_DEBUG_LEVEL_2)
             printf(">>> Topic's id: %s => parent's id: %s\n", topic->id, id);
 
-        parent = topics_dict->get(topics_dict, id);
+        parent = self->topics->get(self->topics, id);
         if (!parent) continue;
 
         topic->parent = parent;
@@ -451,16 +520,17 @@ Monitor_load_topics_from_file(struct Monitor *self,
 {
     int ret;
 
-    struct ooDict *topics_dict;
+    /* struct ooDict *topics_dict; */
     struct ooList *topics_list;
     size_t topics_array_size;
 
     xmlDocPtr doc;
     struct Topic *tmp;
 
-
+    /*
     ret = ooDict_new(&topics_dict, DICT_INIT_SIZE);
     if (ret != OK) return FAIL;
+    */
 
     ret = ooList_new(&topics_list);
     if (ret != OK) return FAIL;
@@ -468,12 +538,12 @@ Monitor_load_topics_from_file(struct Monitor *self,
     doc = xmlReadFile(path, NULL, 0);
     if (!doc) return FAIL;
 
-    Monitor_add_topics_xmlDocPtr(self, doc, topics_dict, topics_list);
+    Monitor_add_topics_xmlDocPtr(self, doc, topics_list);
 
-    topics_dict->set(topics_dict, self->generic_topic->id, self->generic_topic);
+    self->topics->set(self->topics, self->generic_topic->id, self->generic_topic);
     topics_list->add(topics_list, self->generic_topic, NULL);
 
-    Monitor_establish_dependencies(self, topics_dict, topics_list);
+    Monitor_establish_dependencies(self, topics_list);
 
     return ret;
 }
@@ -523,12 +593,15 @@ Monitor_new(struct Monitor **monitor)
 
     memset(self, 0, sizeof(struct Monitor));
 
-    ret = Topic_new(&generic_topic);
+    ret = Topic_new(&generic_topic, true);
     if (ret != OK) goto error;
 
     self->generic_topic = generic_topic;
 
     strcpy(generic_topic->id, GENERIC_TOPIC_ID);
+
+    ret = ooDict_new(&self->topics, DICT_INIT_SIZE);
+    if (ret != OK) goto error;
 
     ret = Monitor_init(self);
     if (ret != OK) goto error;

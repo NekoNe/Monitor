@@ -13,6 +13,8 @@ struct Topic
     struct Topic **children;
     size_t children_number;
 
+    struct ooDict *documents;
+
     /** interface methods **/
 
     /* finding topics child by his name */
@@ -39,5 +41,5 @@ struct Topic
 };
 
 /* constructor */
-extern int Topic_new(struct Topic **topic);
+extern int Topic_new(struct Topic **topic, int has_documents_dict);
 
