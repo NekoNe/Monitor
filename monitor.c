@@ -30,6 +30,8 @@ static int
 Monitor_receive_result(struct Monitor *self,
                        const char *result)
 {
+    if (MONITOR_DEBUG_LEVEL_3)
+        printf(">>> [Monitor]: Received result from [Agent]: \n%s\n", result);
     return OK;
 }
 
@@ -55,7 +57,7 @@ Monitor_pack_task(struct Monitor *self,
 
     xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
 
-    *task = malloc(strlen((char *)out) * sizeof(char));
+    *task = malloc((strlen((char *)out) + 1) * sizeof(char));
     if (!task) return NOMEM;
 
     strcpy(*task, (char *)out);
@@ -156,7 +158,7 @@ Monitor_request_handler_list_topic(struct Monitor *self,
 
         prop_val = xmlGetProp(topic_level, "title");
         prop_size = strlen((char *)prop_val);
-        topic_name = malloc(prop_size * sizeof(char));
+        topic_name = malloc((prop_size + 1) * sizeof(char));
         strcpy(topic_name, (char *)prop_val);
         xmlFree(prop_val);
 
@@ -211,7 +213,7 @@ Monitor_request_handler(struct Monitor *self,
 
         prop_val = xmlGetProp(request_level, "name");
         prop_size = strlen((char *)prop_val);
-        func_name = malloc(prop_size * sizeof(char));
+        func_name = malloc((prop_size + 1) * sizeof(char));
         strcpy(func_name, (char *)prop_val);
         xmlFree(prop_val);
 
@@ -522,7 +524,7 @@ Monitor_new(struct Monitor **monitor)
     memset(self, 0, sizeof(struct Monitor));
 
     ret = Topic_new(&generic_topic);
-    if (ret != OK) return ret;
+    if (ret != OK) goto error;
 
     self->generic_topic = generic_topic;
 

@@ -4,10 +4,13 @@
 
 #include <libxml/HTMLparser.h>
 #include <curl/curl.h>
+#include <zmq.h>
 
 #include "agent.h"
 #include "config.h"
 #include "oodict.h"
+
+#include "zhelpers.h"
 
 #define PAGE_SIZE 100000
 #define DICT_INIT_SIZE 1000
@@ -47,7 +50,8 @@ static int
 Agent_walk_through_htmlTree(struct Agent *self,
                       xmlNodePtr node,
                       const char *url,
-                      char *branch)
+                      char *branch,
+                      void *sender)
 {
     xmlNodePtr child;
     xmlChar *tmp;
@@ -60,7 +64,7 @@ Agent_walk_through_htmlTree(struct Agent *self,
 
     child = node->children;
     while (child) {
-        ret = Agent_walk_through_htmlTree(self, child, url, branch);
+        ret = Agent_walk_through_htmlTree(self, child, url, branch, sender);
         if (ret != OK) return ret;
 
         if (child->name == NULL) {
@@ -123,7 +127,8 @@ static int
 Agent_parse_page(struct Agent *self,
                  char *buffer,
                  const char *url,
-                 char *branch)
+                 char *branch,
+                 void *sender)
 {
     htmlDocPtr doc;
     xmlNodePtr root;
@@ -136,8 +141,9 @@ Agent_parse_page(struct Agent *self,
     }
 
     root = xmlDocGetRootElement(doc);
-    Agent_walk_through_htmlTree(self, root, url, branch);
-    printf("root's name: %s\n", root->name);
+    Agent_walk_through_htmlTree(self, root, url, branch, sender);
+    /* printf("root's name: %s\n", root->name); */
+    s_send(sender, "OK", strlen("OK") + 1);
 
     xmlFreeDoc(doc);
     return OK;
@@ -146,7 +152,8 @@ Agent_parse_page(struct Agent *self,
 static int
 Agent_open_page(struct Agent *self,
                 const char *url,
-                char *branch)
+                char *branch,
+                void *sender)
 {
     CURL *curl_handler;
     CURLcode res;
@@ -182,7 +189,7 @@ Agent_open_page(struct Agent *self,
         return FAIL; /* TODO: free mem */
     }
 
-    Agent_parse_page(self, chunk.buffer, url, branch);
+    Agent_parse_page(self, chunk.buffer, url, branch, sender);
 
     free(chunk.buffer);
 
@@ -192,7 +199,8 @@ Agent_open_page(struct Agent *self,
 static int
 Agent_crawl_resource(struct Agent *self,
                      char *title,
-                     char *url)
+                     char *url,
+                     void *sender)
 {
     const char *key;
     void *val;
@@ -201,7 +209,7 @@ Agent_crawl_resource(struct Agent *self,
     key = NULL;
     val = NULL;
 
-    branch = malloc((strlen(url) + 1) * sizeof(char));
+    branch = malloc((strlen(url) + 1) * sizeof(char)); /* TODO: free */
     strcpy(branch, url);
 
     self->unwatched->set(self->unwatched, url, NULL);
@@ -217,7 +225,7 @@ Agent_crawl_resource(struct Agent *self,
             printf(">>> [agent]: URL <%s> has been gotten from unwatched\n", key);
 
         /* parse page */
-        Agent_open_page(self, key, branch);
+        Agent_open_page(self, key, branch, sender);
 
         self->watched->set(self->watched, key, NULL);
         self->unwatched->remove(self->unwatched, key);
@@ -229,7 +237,8 @@ Agent_crawl_resource(struct Agent *self,
 
 static int
 Agent_request_handler(struct Agent *self,
-                      char *request)
+                      char *request,
+                      void *sender)
 {
     xmlDocPtr doc;
     xmlNodePtr task_level, resource_level;
@@ -275,7 +284,7 @@ Agent_request_handler(struct Agent *self,
             xmlFree(tmp);
 
             tmp = xmlGetProp(resource_level, "url");
-            url = malloc(strlen((char *)tmp));
+            url = malloc(strlen((char *)tmp) + 1);
             if (!url) return NOMEM; /* goto... */
             strcpy(url, (char *)tmp);
             xmlFree(tmp);
@@ -285,7 +294,7 @@ Agent_request_handler(struct Agent *self,
                 printf(">>> [agent]: Arguments has gotten: resource title = %s; url = %s\n",\
                         title, url);
 
-            ret = Agent_crawl_resource(self, title, url);
+            ret = Agent_crawl_resource(self, title, url, sender);
             if (ret != OK) return ret; /* goto... */
 
             if (title) free(title);

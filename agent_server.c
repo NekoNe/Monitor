@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <zmq.h>
+
 #include "zhelpers.h"
 
 #include "agent.h"
@@ -26,8 +28,12 @@ int main(int const argc,
     if (ret != OK) return ret;
 
     context = zmq_init(1);
+
     receiver = zmq_socket(context, ZMQ_PULL);
     zmq_connect(receiver, "tcp://localhost:5569");
+
+    sender = zmq_socket(context, ZMQ_PUSH);
+    zmq_connect(sender, "tcp://localhost:5558");
 
     while (1) {
         if (AGENT_DEBUG_LEVEL_1)
@@ -40,7 +46,7 @@ int main(int const argc,
 
         /* handling message */
 
-        agent->request_handler(agent, incomming_message);
+        agent->request_handler(agent, incomming_message, sender);
 
         /* task complited */
         free(incomming_message);

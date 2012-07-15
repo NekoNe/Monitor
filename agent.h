@@ -7,7 +7,8 @@ struct Agent
     /** public methods **/
 
     int (*request_handler)(struct Agent *selfi,
-                           char *request);
+                           char *request,
+                           void *sender);
 
     int (*init)(struct Agent *self);
     int (*del)(struct Agent *self);
