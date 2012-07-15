@@ -10,6 +10,7 @@ MONITOR_OBJ = monitor.o\
 
 AGENT_OBJ = agent.o\
 			url_parser.o\
+			topic.o\
 			oodict.o\
 			oolist.o\
 			ooarray.o\
