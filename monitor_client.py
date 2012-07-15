@@ -9,29 +9,14 @@ tests = []
 
 #tests: list_topic
 
-test =\
-"<request name = \"list_topic\">\n\
-</request>"
-tests.append(test)
-
-test =\
-"<request name = \"list_topic\">\n\
-    <topic title = \"Конституционный строй\"/>\n\
-</request>"
-tests.append(test)
-
-test =\
-"<request name = \"list_topic\">\n\
-    <topic title = \"Конституционный строй\"/>\n\
-    <topic title = \"Конституция Российской Федерации. Конституции, уставы субъектов Российской Федерации\"/>\n\
-</request>"
-tests.append(test)
+usage = "    Запросить список подкатегорий: <show_children id = \"id категории\"/>\n\
+    Запросить список документов относящихся к категории: <show_docs id =\"id категории\"/>"
 
 
 
 def client_start():
     context = zmq.Context()
-
+    print "usage\n", usage
     print ">>> Connectiong to monitor server..."
 
     socket = context.socket(zmq.REQ)

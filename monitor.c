@@ -208,6 +208,50 @@ Monitor_distribute_tasks(struct Monitor *self,
 }
 
 static int
+Monitor_pack_children_xml(struct Monitor *self,
+                      char *id,
+                      char **response)
+{
+    struct Topic *topic;
+    struct Topic *child;
+
+    const char *key;
+    void *val;
+    size_t len, i;
+
+    xmlDocPtr doc;
+    xmlNodePtr topics_level, topic_level;
+    xmlChar *out;
+
+    int ret;
+
+    if (!self->topics->key_exists(self->topics, id)) return FAIL;
+    topic = self->topics->get(self->topics, id);
+    topic->documents->rewind(topic->documents);
+
+    doc = xmlNewDoc("1.0");
+    topics_level = xmlNewNode(NULL, "topics");
+    xmlDocSetRootElement(doc, topics_level);
+
+    for (i = 0; i < topic->children_number; i++) {
+        child = topic->children[i];
+
+        topic_level = xmlNewChild(topics_level, NULL, "topic", NULL);
+        xmlNewProp(topic_level, "id", child->id);
+        xmlNewProp(topic_level, "title", child->title);
+
+    }
+    xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
+
+    *response = malloc((strlen((char *)out) + 1) * sizeof(char));
+    if (!*response) return NOMEM; /* TODO: free in caller & free mem above */
+
+    strcpy(*response, (char *)out);
+    xmlFree(out);
+    xmlFreeDoc(doc);
+}
+
+static int
 Monitor_pack_docs_xml(struct Monitor *self,
                       char *id,
                       char **response)
@@ -246,12 +290,41 @@ Monitor_pack_docs_xml(struct Monitor *self,
     if (!*response) return NOMEM; /* TODO: free in caller & free mem above */
 
     strcpy(*response, (char *)out);
-    response[strlen((char *)out)] = '\0';
     xmlFree(out);
     xmlFreeDoc(doc);
 
     return OK;
 }
+
+static int
+Monitor_show_children(struct Monitor *self,
+                      xmlNodePtr request_level,
+                      char **response)
+{
+    xmlChar *tmp;
+
+    char *id;
+    int ret;
+
+
+    ret = OK;
+    if (!xmlHasProp(request_level, "id"))
+        return FAIL;
+
+    tmp = xmlGetProp(request_level, "id");
+    id = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+    if (!id) { ret = NOMEM; goto monitor_show_docs_exit; }
+
+    strcpy(id, (char *)tmp);
+
+    ret = Monitor_pack_children_xml(self, id, response);
+
+monitor_show_docs_exit:
+    if (tmp) xmlFree(tmp);
+    if (id) free(id);
+    return ret;
+}
+
 
 static int
 Monitor_show_docs(struct Monitor *self,
@@ -303,6 +376,11 @@ Monitor_request_handler(struct Monitor *self,
 
     if (strcmp(request_level->name, "show_docs") == 0) {
         ret = Monitor_show_docs(self, request_level, response);
+        goto monitor_request_handler_exit;
+    }
+
+    if (strcmp(request_level->name, "show_children") == 0) {
+        ret = Monitor_show_children(self, request_level, response);
         goto monitor_request_handler_exit;
     }
 
