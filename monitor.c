@@ -108,8 +108,10 @@ Monitor_receive_result(struct Monitor *self,
         }
 
         topic = self->topics->get(self->topics, id);
-        if (!topic->documents->key_exists(topic->documents, url))
+        if (!topic->documents->key_exists(topic->documents, url)) {
             topic->documents->set(topic->documents, url, NULL);
+            topic->documents_number++;
+        }
 
         topic_level = topic_level->next;
     }
@@ -208,6 +210,42 @@ Monitor_distribute_tasks(struct Monitor *self,
 }
 
 static int
+Monitor_pack_number_xml(struct Monitor *self,
+                      char *id,
+                      char **response)
+{
+    struct Topic *topic;
+    struct Topic *child;
+    char num[MAX_URL_SIZE];
+    size_t len, i;
+
+    xmlDocPtr doc;
+    xmlNodePtr number_level;
+    xmlChar *out;
+
+    int ret;
+
+    if (!self->topics->key_exists(self->topics, id)) return FAIL;
+    topic = self->topics->get(self->topics, id);
+    topic->documents->rewind(topic->documents);
+
+    doc = xmlNewDoc("1.0");
+    sprintf(num, "%d", topic->documents_number);
+    number_level = xmlNewNode(NULL, num);
+    xmlDocSetRootElement(doc, number_level);
+
+    xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
+
+    *response = malloc((strlen((char *)out) + 1) * sizeof(char));
+    if (!*response) return NOMEM; /* TODO: free in caller & free mem above */
+
+    strcpy(*response, (char *)out);
+    xmlFree(out);
+    xmlFreeDoc(doc);
+
+    return OK;
+}
+static int
 Monitor_pack_children_xml(struct Monitor *self,
                       char *id,
                       char **response)
@@ -249,6 +287,8 @@ Monitor_pack_children_xml(struct Monitor *self,
     strcpy(*response, (char *)out);
     xmlFree(out);
     xmlFreeDoc(doc);
+
+    return OK;
 }
 
 static int
@@ -325,6 +365,34 @@ monitor_show_docs_exit:
     return ret;
 }
 
+static int
+Monitor_doc_number(struct Monitor *self,
+                  xmlNodePtr request_level,
+                  char **response)
+{
+    xmlChar *tmp;
+
+    char *id;
+    int ret;
+
+
+    ret = OK;
+    if (!xmlHasProp(request_level, "id"))
+        return FAIL;
+
+    tmp = xmlGetProp(request_level, "id");
+    id = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+    if (!id) { ret = NOMEM; goto monitor_show_docs_exit; }
+
+    strcpy(id, (char *)tmp);
+
+    ret = Monitor_pack_number_xml(self, id, response);
+
+monitor_show_docs_exit:
+    if (tmp) xmlFree(tmp);
+    if (id) free(id);
+    return ret;
+}
 
 static int
 Monitor_show_docs(struct Monitor *self,
@@ -381,6 +449,11 @@ Monitor_request_handler(struct Monitor *self,
 
     if (strcmp(request_level->name, "show_children") == 0) {
         ret = Monitor_show_children(self, request_level, response);
+        goto monitor_request_handler_exit;
+    }
+
+    if (strcmp(request_level->name, "doc_num") == 0) {
+        ret = Monitor_doc_number(self, request_level, response);
         goto monitor_request_handler_exit;
     }
 
