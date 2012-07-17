@@ -12,6 +12,14 @@
 #include "config.h"
 
 static int
+TopicStorage_request_handler(struct TopicStorage *self,
+                             char *request,
+                             char **reply)
+{
+    return OK;
+}
+
+static int
 TopicStorage_serve_forever(struct TopicStorage *self)
 {
     void *context;
@@ -20,6 +28,9 @@ TopicStorage_serve_forever(struct TopicStorage *self)
     char *request;
     char *reply;
     size_t msg_size;
+
+    int ret;
+
 
     context = zmq_init(1);
     responder = zmq_socket(context, ZMQ_REP);
@@ -38,13 +49,17 @@ TopicStorage_serve_forever(struct TopicStorage *self)
 
         /** handle request **/
 
-        self->request_handler(self, request, &reply);
+        ret = self->request_handler(self, request, &reply);
+        if (ret != OK) {
+            if (reply) free(reply);
+            reply = NULL;
+        }
 
         if (request) free(request);
 
         if (!reply) {
-            s_send(responder, "</nothing>", strlen("</nothing>") + 1);
-            printf(">>> [TopicStorage]: Reply: <nothing/>\n");
+            s_send(responder, "</error>", strlen("</error>") + 1);
+            printf(">>> [TopicStorage]: Reply: <error/>\n");
         }
         else {
             s_send(responder, reply, strlen(reply) + 1);
@@ -52,9 +67,9 @@ TopicStorage_serve_forever(struct TopicStorage *self)
             free(reply);
         }
     }
+
     zmq_close(responder);
     zmq_term(context);
-    /* we never get here */
     return OK;
 }
 

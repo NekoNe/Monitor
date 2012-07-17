@@ -3,7 +3,20 @@ struct TopicStorage
 {
     const char *endpoint;
 
-    /** public methods **/
+    /* root of topic-tree */
+    struct Topic *generic;
+
+    /* all topics */
+    struct ooDict *topics;
+
+    /* topics that have no path to generic */
+    struct ooDict *unlinked;
+
+    /* leaves of topic tree */
+    struct ooDict *childless;
+
+
+    /** interface methods **/
 
     /* the main method that starts service */
     int (*serve_forever)(struct TopicStorage *self);
