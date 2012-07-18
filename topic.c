@@ -11,7 +11,7 @@
 #define DICT_INIT_SIZE 1000
 
 static int
-Topic_veryfy_id(struct Topic *self,
+Topic_verify_id(struct Topic *self,
                 char *id)
 {
     /* TODO */
@@ -75,8 +75,8 @@ Topic_set_id(struct Topic *self,
 }
 
 static int
-Topic_find_child(struct Topic *self,
-                 char *name,
+Topic_get_child(struct Topic *self,
+                 char *id,
                  struct Topic **child)
 {
     /* TODO */
@@ -185,14 +185,17 @@ Topic_del(struct Topic *self)
 static int
 Topic_init(struct Topic *self)
 {
-    self->init          = Topic_init;
-    self->del           = Topic_del;
-    self->str           = Topic_str;
+    self->init                  = Topic_init;
+    self->del                   = Topic_del;
+    self->str                   = Topic_str;
 
-    self->add_concept   = Topic_add_concept;
-    self->add_child     = Topic_add_child;
-/*    self->parent_id     = Topic_parent_id; */
-/*    self->find_child    = Topic_find_child; */
+    self->verify_id             = Topic_verify_id;
+    self->set_title             = Topic_set_title;
+    self->set_id                = Topic_set_id;
+    self->get_child             = Topic_get_child;
+    self->add_concept           = Topic_add_concept;
+    self->add_child             = Topic_add_child;
+    self->predict_parent_id     = Topic_predict_parent_id;
 
     return OK;
 }

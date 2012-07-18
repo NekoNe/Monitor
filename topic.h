@@ -31,8 +31,8 @@ struct Topic
     int (*set_id)(struct Topic *self,
                      char *id);
 
-    /* finding topics child by his id */
-    int (*find_child)(struct Topic *self,
+    /* getting topics child by his id */
+    int (*get_child)(struct Topic *self,
                       char *id,
                       struct Topic **child);
 
