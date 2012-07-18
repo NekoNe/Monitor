@@ -114,7 +114,51 @@ exit:
     if (doc) xmlFreeDoc(doc);
     return ret;
 }
+/**********  PUBLIC METHODS  **********/
+void *
+Monitor_sink_forever(void *monitor)
+{
+    struct Monitor *self;
+    void *context;
 
+    void *topic_storage;
+    void *sink;
+
+    char *income;
+    size_t msg_size;
+    int ret;
+
+
+    self = (struct Monitor *)monitor;
+    context = zmq_init(1);
+
+    topic_storage = zmq_socket(context, ZMQ_REQ);
+    zmq_connect(topic_storage, self->topic_storage_endpoint);
+
+    sink = zmq_socket(context, ZMQ_PULL);
+    zmq_bind(sink, self->sink_endpoint);
+
+    printf(">>> [Monitor_sink]: Sink-server is ready.\n");
+
+    while (true) {
+        income = NULL;
+
+        income = s_recv(sink, &msg_size);
+        printf(">>> [Monitor_sink]: new result: \n%s\n>>> sending to TS...\n", income);
+
+        if (!income) continue;
+
+        s_send(topic_storage, income, (strlen(income) + 1) * sizeof(char));
+        if (income) free(income);
+
+        s_recv(income, &msg_size);
+        printf(">>> [Monitor_sink]: topic_server resposed: \n%s\n", income);
+
+        if (income) free(income);
+    }
+
+    return ;
+}
 void *
 Monitor_clock_forever(void *monitor)
 {
@@ -128,6 +172,8 @@ Monitor_clock_forever(void *monitor)
     size_t msg_size;
     int ret;
 
+
+    income = NULL;
     self = (struct Monitor *)monitor;
     context = zmq_init(1);
 
@@ -143,11 +189,9 @@ Monitor_clock_forever(void *monitor)
         income = s_recv(clock, &msg_size);
 
         ret = Monitor_clock_handler(self, income, rg_ru);
-        free(income);
-
+        if (income) free(income);
     }
-
-    return OK;
+    return ;
 }
 
 static int
@@ -165,15 +209,14 @@ Monitor_serve_forever(struct Monitor *self)
         return OK;
     }
 
-/*
-    ret = pthread_create(&sink, NULL, self->sink_forver, (void *)self);
+    ret = pthread_create(&sink, NULL, self->sink_forever, (void *)self);
     if (ret) {
         printf(">>> [Monitor]: can't start sink pthread\n");
         return OK;
     }
-*/
+
     pthread_join(clock, NULL);
-/*    pthread_join(sink, NULL); */
+    pthread_join(sink, NULL);
 
     return OK;
 }
@@ -200,6 +243,7 @@ Monitor_init(struct Monitor *self)
     self->del                       = Monitor_del;
     self->str                       = Monitor_str;
     self->clock_forever             = Monitor_clock_forever;
+    self->sink_forever              = Monitor_sink_forever;
     self->serve_forever             = Monitor_serve_forever;
 
     return OK;

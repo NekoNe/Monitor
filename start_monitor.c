@@ -11,7 +11,9 @@ int main(int argc,
 {
     struct Monitor *monitor;
     char *clock_endpoint = "tcp://localhost:5549";
-    char *rg_ru_endpoint = "tcp://*:5559";
+    char *rg_ru_endpoint = "tcp://localhost:5559";
+    char *topic_storage_endpoint = "tcp://localhost:5554";
+    char *sink_endpoint = "tcp://localhost:5569";
 
     int ret;
 
@@ -21,6 +23,8 @@ int main(int argc,
 
     monitor->rg_ru_endpoint = rg_ru_endpoint;
     monitor->clock_endpoint = clock_endpoint;
+    monitor->topic_storage_endpoint = topic_storage_endpoint;
+    monitor->sink_endpoint = sink_endpoint;
 
     monitor->serve_forever(monitor);
 
