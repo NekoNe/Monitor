@@ -437,8 +437,8 @@ TopicStorage_request_handler(struct TopicStorage *self,
         printf(">>> [TopicStorage]: Unknown command.\n");
 
 request_handler_exit:
-    /* if (tmp) xmlFree(tmp);
-    if (req) xmlFreeDoc(req);*/
+    if (tmp) xmlFree(tmp);
+    if (req) xmlFreeDoc(req);
     return ret;
 }
 

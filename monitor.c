@@ -151,7 +151,7 @@ Monitor_sink_forever(void *monitor)
         s_send(topic_storage, income, (strlen(income) + 1) * sizeof(char));
         if (income) free(income);
 
-        s_recv(income, &msg_size);
+        income = s_recv(topic_storage, &msg_size);
         printf(">>> [Monitor_sink]: topic_server resposed: \n%s\n", income);
 
         if (income) free(income);
