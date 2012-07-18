@@ -8,34 +8,46 @@ struct Topic
 
     char *title;
 
-    struct Topic *parent;
+    char *parent_id;
 
-    struct Topic **children;
+    char **children_id;
     size_t children_number;
 
     struct ooDict *documents;
+    /* TODO: it must be not size_t but long-arithm number or string */
+    size_t documents_number;
 
     /** interface methods **/
 
-    /* finding topics child by his name */
+    /* checks id's syntax */
+    int (*verify_id)(struct Topic *self,
+                     char *id);
+
+    /* alloc mem and makes string copy */
+    int (*set_title)(struct Topic *self,
+                     char *title);
+
+    /* alloc mem and makes string copy */
+    int (*set_id)(struct Topic *self,
+                     char *id);
+
+    /* finding topics child by his id */
     int (*find_child)(struct Topic *self,
-                      char *name,
+                      char *id,
                       struct Topic **child);
 
-    /* topic to xml-string */
-    int (*pack)(struct Topic *self,
-                char *buffer,
-                size_t buffer_size);
-
+    /* add new keyword */
     int (*add_concept)(struct Topic *self,
                        char *name);
 
     int (*add_child)(struct Topic *self,
                      struct Topic *child);
 
-    int (*parent_id)(struct Topic *self, char *id);
+    /* getting parent's id */
+    int (*predict_parent_id)(struct Topic *self, char *id);
 
     int (*init)(struct Topic *self);
+    /* destructor */
     int (*del)(struct Topic *self);
     int (*str)(struct Topic *self);
 };

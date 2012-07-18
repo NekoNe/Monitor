@@ -10,41 +10,92 @@
 
 #define DICT_INIT_SIZE 1000
 
+static int
+Topic_veryfy_id(struct Topic *self,
+                char *id)
+{
+    /* TODO */
+    return OK;
+}
+
+/* TODO: set_title and set id are very similar
+ * it may be generalized */
+static int
+Topic_set_title(struct Topic *self,
+                char *title)
+{
+    char *new_title;
+
+
+    if (self->title) {
+        if (strlen(self->title) >= strlen(title)) {
+            strcpy(self->title, title);
+            return OK;
+        }
+        new_title = malloc((strlen(title) + 1) * sizeof(char));
+        if (!new_title) return FAIL;
+        strcpy(new_title, title);
+
+        free(self->title);
+        title = new_title;
+    }
+
+    self->title = malloc((strlen(title) + 1) * sizeof(char));
+    if (!self->title) return FAIL;
+    strcpy(self->title, title);
+
+    return OK;
+}
+
+static int
+Topic_set_id(struct Topic *self,
+             char *id)
+{
+     char *new_id;
+
+
+    if (self->id) {
+        if (strlen(self->id) >= strlen(id)) {
+            strcpy(self->id, id);
+            return OK;
+        }
+        new_id = malloc((strlen(id) + 1) * sizeof(char));
+        if (!new_id) return FAIL;
+        strcpy(new_id, id);
+
+        free(self->id);
+        id = new_id;
+    }
+
+    self->id = malloc((strlen(id) + 1) * sizeof(char));
+    if (!self->id) return FAIL;
+    strcpy(self->id, id);
+
+    return OK;
+}
 
 static int
 Topic_find_child(struct Topic *self,
                  char *name,
                  struct Topic **child)
 {
-    size_t i;
-    int ret;
-
-    for (i = 0; i < self->children_number; i++) {
-        if (TOPIC_DEBUG_LEVEL_3)
-            printf(">>> Compare %s with %s...\n", name, self->children[i]->title);
-        ret = strcmp(self->children[i]->title, name);
-        if (ret) continue;
-        *child = self->children[i];
-        return OK;
-    }
-    *child = NULL;
-
+    /* TODO */
     return OK;
 }
 
-/* TODO!!!: do it constants-free i.e.
- * no matter how many digits, digits length etc.
- * */
+/* TODO: write it right way */
 static int
-Topic_parent_id(struct Topic *self,
-                char *id)
+Topic_predict_parent_id(struct Topic *self,
+                        char *id)
 {
     size_t digits;
-    size_t window; /* DIGIT_SIZE + SEPAR_SIZE i.e. "complete" digit "000." */
+    size_t window;
+
     size_t pointer;
     char zero_digit[] = "000";
 
-    digits = ID_DIGIT_NUMBER; /* TODO: here should be func call "digit_number" */
+    digits = ID_DIGIT_NUMBER;
+
     window = ID_DIGIT_SIZE + ID_SEPAR_SIZE;
     strcpy(id, self->id);
 
@@ -53,7 +104,6 @@ Topic_parent_id(struct Topic *self,
     while (1) {
         if (!strncmp(id + pointer, zero_digit, ID_DIGIT_NUMBER)) {
             pointer -= window;
-            /* TODO!!!: if id is corrupted e.g. "00.000.000"... look at size_t */
             continue;
         }
         strncpy(id + pointer, zero_digit, ID_DIGIT_NUMBER);
@@ -66,15 +116,14 @@ static int
 Topic_add_child(struct Topic *self,
                 struct Topic *child)
 {
-    struct Topic **new_children;
+    char **new_children;
 
-    if (TOPIC_DEBUG_LEVEL_2)
-        printf(">>> Adding child <%s> at <%p> \n\tto <%s> at <%p>...\n", child->title, child, self->title, self);
-    new_children = realloc(self->children, (self->children_number + 1) * sizeof(struct Topic *));
+
+    new_children = realloc(self->children_id, (self->children_number + 1) * sizeof(char *));
     if (!new_children) return NOMEM;
 
-    new_children[self->children_number] = child;
-    self->children = new_children;
+    self->children_id = new_children;
+    self->children_id[self->children_number] = child->id;
     self->children_number++;
 
     return OK;
@@ -86,6 +135,7 @@ Topic_add_concept(struct Topic *self,
                   char *name)
 {
     char **new_concepts;
+
 
     new_concepts = realloc(self->concepts, (self->concepts_number + 1) * sizeof(char *));
     if (!new_concepts) return NOMEM;
@@ -101,16 +151,6 @@ Topic_add_concept(struct Topic *self,
     return OK;
 }
 
-/* packing back to xml */
-static int
-Topic_pack(struct Topic *self,
-           char *buffer,
-           size_t buffer_size)
-{
-    /* TODO */
-    return OK;
-}
-
 static int
 Topic_str(struct Topic *self)
 {
@@ -122,8 +162,24 @@ Topic_str(struct Topic *self)
 static int
 Topic_del(struct Topic *self)
 {
-    /* TODO */
-    return OK;
+    int ret;
+    size_t i;
+
+
+    if (!self) return OK;
+    if (self->id) free(self->id);
+    if (self->title) free(self->title);
+
+    if (self->children_id) {
+        for (i = 0; i < self->children_number; i++) {
+            if (self->children_id[i]) free(self->children_id[i]);
+        }
+        free(self->children_id);
+    }
+    ret = self->documents->del(self->documents);
+    free(self);
+
+    return ret;
 }
 
 static int
@@ -132,11 +188,12 @@ Topic_init(struct Topic *self)
     self->init          = Topic_init;
     self->del           = Topic_del;
     self->str           = Topic_str;
-    self->pack          = Topic_pack;
+
     self->add_concept   = Topic_add_concept;
     self->add_child     = Topic_add_child;
-    self->parent_id     = Topic_parent_id;
-    self->find_child    = Topic_find_child;
+/*    self->parent_id     = Topic_parent_id; */
+/*    self->find_child    = Topic_find_child; */
+
     return OK;
 }
 
@@ -147,6 +204,7 @@ Topic_new(struct Topic **topic, int has_documents_dict)
     int ret;
     struct Topic *self;
 
+
     self = malloc(sizeof(struct Topic));
     if (!self) return NOMEM;
 
@@ -154,12 +212,6 @@ Topic_new(struct Topic **topic, int has_documents_dict)
 
     self->id = malloc(TOPIC_ID_SIZE * sizeof(char));
     if(!self->id) {
-        ret = NOMEM;
-        goto error;
-    }
-
-    self->title = malloc(MAX_NAME_LENGTH * sizeof(char));
-    if(!self->title) {
         ret = NOMEM;
         goto error;
     }
