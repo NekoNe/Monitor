@@ -53,6 +53,7 @@ Topic_set_id(struct Topic *self,
 {
      char *new_id;
 
+    if (self->verify_id(self, id) != OK) return FAIL;
 
     if (self->id) {
         if (strlen(self->id) >= strlen(id)) {
