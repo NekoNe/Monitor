@@ -18,6 +18,9 @@ struct TopicStorage
 
     /** interface methods **/
 
+    /* resolves dependencies between topics */
+    int (*establish_dependencies)(struct TopicStorage *self);
+
     /* the main method that starts service */
     int (*serve_forever)(struct TopicStorage *self);
 
@@ -27,7 +30,7 @@ struct TopicStorage
                            char **reply);
 
     int (*init)(struct TopicStorage *self,
-                const char endpoint);
+                const char *endpoint);
 
     int (*str)(struct TopicStorage *self);
 

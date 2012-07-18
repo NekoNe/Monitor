@@ -119,7 +119,7 @@ Topic_add_child(struct Topic *self,
 {
     char **new_children;
 
-
+    /* TODO: check child exists */
     new_children = realloc(self->children_id, (self->children_number + 1) * sizeof(char *));
     if (!new_children) return NOMEM;
 
@@ -155,7 +155,7 @@ Topic_add_concept(struct Topic *self,
 static int
 Topic_str(struct Topic *self)
 {
-    printf("<struct Topic at %p>\n", self);
+    printf("<struct Topic at %p> title: %s id: %s\n", self, self->title, self->id);
     return OK;
 }
 
@@ -166,7 +166,7 @@ Topic_del(struct Topic *self)
     int ret;
     size_t i;
 
-
+    /*
     if (!self) return OK;
     if (self->id) free(self->id);
     if (self->title) free(self->title);
@@ -179,7 +179,7 @@ Topic_del(struct Topic *self)
     }
     ret = self->documents->del(self->documents);
     free(self);
-
+    */
     return ret;
 }
 
@@ -203,7 +203,7 @@ Topic_init(struct Topic *self)
 
 /* constructor */
 extern int
-Topic_new(struct Topic **topic, int has_documents_dict)
+Topic_new(struct Topic **topic)
 {
     int ret;
     struct Topic *self;
@@ -219,12 +219,12 @@ Topic_new(struct Topic **topic, int has_documents_dict)
         ret = NOMEM;
         goto error;
     }
-
+    /*
     if (has_documents_dict) {
         ret = ooDict_new(&self->documents, DICT_INIT_SIZE);
         if (ret != OK) goto error;
     }
-
+    */
     ret = Topic_init(self);
     if (ret != OK) goto error;
 

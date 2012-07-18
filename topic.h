@@ -29,12 +29,12 @@ struct Topic
 
     /* alloc mem and makes string copy */
     int (*set_id)(struct Topic *self,
-                     char *id);
+                  char *id);
 
     /* getting topics child by his id */
     int (*get_child)(struct Topic *self,
-                      char *id,
-                      struct Topic **child);
+                     char *id,
+                     struct Topic **child);
 
     /* add new keyword */
     int (*add_concept)(struct Topic *self,
@@ -53,5 +53,5 @@ struct Topic
 };
 
 /* constructor */
-extern int Topic_new(struct Topic **topic, int has_documents_dict);
+extern int Topic_new(struct Topic **topic);
 
