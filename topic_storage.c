@@ -361,6 +361,8 @@ TopicStorage_establish_dependencies(struct TopicStorage *self)
         parent = self->topics->get(self->topics, id);
         if (!parent) continue;
 
+        self->unlinked->remove(self->unlinked, topic->id);
+
         topic->parent_id = parent->id;
         ret = parent->add_child(parent, topic);
         if (ret != OK) continue;
