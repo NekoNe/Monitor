@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <libxml/parser.h>
 
@@ -14,7 +15,22 @@ static int
 Topic_verify_id(struct Topic *self,
                 char *id)
 {
-    /* TODO */
+    size_t len, i;
+
+    if (!id) return FAIL;
+
+    len = strlen(id);
+    if (len != TOPIC_ID_SIZE - 1) {  return FAIL; }
+
+    for (i = 0; i < len; i++) {
+        if (i % (ID_DIGIT_SIZE + ID_SEPAR_SIZE) == ID_DIGIT_SIZE) {
+            if (id[i] != '.') { printf("lol");return FAIL; }
+        }
+        else {
+            if (!isdigit(id[i])) return FAIL;
+        }
+    }
+
     return OK;
 }
 
