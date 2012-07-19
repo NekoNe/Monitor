@@ -5,7 +5,7 @@
 #include "config.h"
 #include "topic_storage.h"
 
-int main(int const * argc,
+int main(int const argc,
          const char  ** const argv)
 {
     struct TopicStorage *storage;

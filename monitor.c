@@ -47,17 +47,58 @@ Monitor_push_update(struct Monitor *self,
     xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
     if (!out) { ret = FAIL; goto exit; }
 
-    s_send(rg_ru, (char *) out, strlen(((char *)out + 1)) * sizeof(char));
-
     if (MONITOR_DEBUG_LEVEL_2)
-        printf(">>> [Monitor]: send update task\n");
+        printf(">>> [Monitor]: sendimg update task...\n");
+    s_send(rg_ru, (char *) out, strlen(((char *)out + 1)) * sizeof(char));
+    if (MONITOR_DEBUG_LEVEL_2)
+        printf(">>> [Monitor]: update task was send.\n");
+
 exit:
     if (out) xmlFree(out);
     if (doc) xmlFreeDoc(doc);
     return ret;
 }
 
-/* rg_ru is temp solution */
+static int
+Monitor_push_full_load(struct Monitor *self,
+                       xmlNodePtr request_level,
+                       void *rg_ru)
+{
+    xmlDocPtr doc;
+    xmlNodePtr root;
+    xmlChar *out;
+
+    char *msg;
+    size_t len;
+    int ret;
+
+    doc = NULL;
+    root = NULL;
+    out = NULL;
+    ret = OK;
+
+    doc = xmlNewDoc("1.0");
+    if (!doc) return FAIL;
+
+    root = xmlNewNode(NULL, "request");
+    xmlNewProp(root, "type", "full_load");
+    xmlDocSetRootElement(doc, root);
+
+    xmlDocDumpFormatMemoryEnc(doc, &out, &len, "UTF-8", 1);
+    if (!out) { ret = FAIL; goto exit; }
+
+    if (MONITOR_DEBUG_LEVEL_2)
+        printf(">>> [Monitor]: sendimg update task...\n");
+    s_send(rg_ru, (char *) out, strlen(((char *)out + 1)) * sizeof(char));
+    if (MONITOR_DEBUG_LEVEL_2)
+        printf(">>> [Monitor]: full_load task was send.\n");
+
+exit:
+    if (out) xmlFree(out);
+    if (doc) xmlFreeDoc(doc);
+    return ret;
+}
+
 static int
 Monitor_clock_handler(struct Monitor *self,
                       char *request,
@@ -74,8 +115,12 @@ Monitor_clock_handler(struct Monitor *self,
     request_level = NULL;
     tmp = NULL;
 
+    printf(">>> [Monitor_clock]: parsing request...\n");
     doc = xmlReadMemory(request, strlen(request) + 1, "request.xml", NULL, 0);
-    if (!doc) return FAIL;
+    if (!doc) {
+        printf(">>> [Monitor_clock]: can't parse this request\n");
+        return FAIL;
+    }
 
     if (MONITOR_DEBUG_LEVEL_2)
         printf(">>> [Monitor_clock]: Parsing xml request...\n");
@@ -100,6 +145,11 @@ Monitor_clock_handler(struct Monitor *self,
 
         if (strcmp((char *)tmp, "update") == 0) {
             ret = Monitor_push_update(self, request_level, rg_ru);
+            goto exit;
+        }
+        if (strcmp((char *)tmp, "full_load") == 0) {
+            ret = Monitor_push_full_load(self, request_level, rg_ru);
+            goto exit;
         }
 
         ret = FAIL;
@@ -114,7 +164,9 @@ exit:
     if (doc) xmlFreeDoc(doc);
     return ret;
 }
+
 /**********  PUBLIC METHODS  **********/
+
 void *
 Monitor_sink_forever(void *monitor)
 {
@@ -177,16 +229,19 @@ Monitor_clock_forever(void *monitor)
     self = (struct Monitor *)monitor;
     context = zmq_init(1);
 
-    clock = zmq_socket(context, ZMQ_PULL);
-    zmq_bind(clock, self->clock_endpoint);
-
     rg_ru = zmq_socket(context, ZMQ_PUSH);
     zmq_bind(rg_ru, self->rg_ru_endpoint);
 
-    printf(">>> [Monitor]: Clock-server is ready.\n");
+    clock = zmq_socket(context, ZMQ_PULL);
+    zmq_bind(clock, self->clock_endpoint);
+
+    printf(">>> [Monitor_clock]: Clock-server is ready.\n");
 
     while (true) {
+        income = NULL;
         income = s_recv(clock, &msg_size);
+        if (!income) continue;
+        printf(">>> [Monitor_clock]: new result: \n%s\n>>> handling...\n", income);
 
         ret = Monitor_clock_handler(self, income, rg_ru);
         if (income) free(income);

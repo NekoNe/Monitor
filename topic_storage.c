@@ -168,6 +168,12 @@ TopicStorage_show_children(struct TopicStorage *self,
     ret = OK;
     root = NULL;
     topics = NULL;
+    *response = NULL;
+    id = NULL;
+    resp = NULL;
+
+    if (TOPIC_STORAGE_DEBUG_LEVEL_1)
+        printf(">>> [TopicStorage]: showing children...\n");
 
     while (topic_level) {
         if (strcmp(topic_level->name, "topic")) {
@@ -177,13 +183,23 @@ TopicStorage_show_children(struct TopicStorage *self,
 
         if (!xmlHasProp(topic_level, "id"))
             return FAIL;
+        tmp = NULL;
         tmp = xmlGetProp(topic_level, "id");
+        topic = NULL;
+
+        if (TOPIC_STORAGE_DEBUG_LEVEL_1)
+            printf(">>> [TopicStorage]: finding topic id: %s\n", (char *)tmp);
 
         topic = self->topics->get(self->topics, (char *)tmp);
         if (!topic) {
+
+            if (TOPIC_DEBUG_LEVEL_1)
+                printf(">>> [TopicStorage]: topic not found\n");
+
             ret = FAIL;
             goto show_children_exit;
         }
+        topic->str(topic);
 
         resp = xmlNewDoc("1.0");
         if (!resp) return FAIL;
@@ -193,8 +209,9 @@ TopicStorage_show_children(struct TopicStorage *self,
         xmlDocSetRootElement(resp, root);
 
         for (i = 0; i < topic->children_number; i++) {
+            id = NULL;
             id = topic->children_id[i];
-
+            child = NULL;
             child = self->topics->get(self->topics, id);
             if (!child) continue;
             topics = xmlNewChild(root, NULL, "topic", NULL);
@@ -215,7 +232,7 @@ TopicStorage_show_children(struct TopicStorage *self,
 show_children_exit:
     if (tmp) xmlFree(tmp);
     if (out) xmlFree(out);
-    if (resp) xmlFree(resp);
+    if (resp) xmlFreeDoc(resp);
     return ret;
 }
 
@@ -327,6 +344,74 @@ add_topic_exit:
     return ret;
 }
 
+static int
+TopicStorage_add_doc(struct TopicStorage *self,
+                     xmlNodePtr doc_level,
+                     char **reply)
+{
+    xmlNodePtr topic_level;
+    xmlChar *tmp;
+    struct Topic *topic;
+    char *url;
+
+    int ret;
+
+    ret = OK;
+    topic = NULL; topic_level = NULL;
+    tmp = NULL; url = NULL;
+
+    if (TOPIC_STORAGE_DEBUG_LEVEL_1)
+        printf(">>> [TopicStorage]: adding document(s)...\n");
+
+    while (doc_level) {
+        if (strcmp(doc_level->name, "doc")) {
+            doc_level = doc_level->next;
+            continue;
+        }
+        if (!xmlHasProp(doc_level, "url")) {
+            doc_level = doc_level->next;
+            continue;
+        }
+        tmp = xmlGetProp(doc_level, "url");
+        url = malloc((strlen((char *)tmp) + 1) * sizeof(char));
+        if (!url) { ret = NOMEM; goto exit; }
+        strcpy(url, (char *)tmp);
+
+        topic_level = doc_level->children;
+        while (topic_level) {
+            if (strcmp(topic_level->name, "topic")) {
+                topic_level = topic_level->next;
+                continue;
+            }
+            if (!xmlHasProp(topic_level, "id")) {
+                topic_level = topic_level->next;
+                continue;
+            }
+            tmp = xmlGetProp(topic_level, "id");
+            topic = self->topics->get(self->topics, (char *)tmp);
+
+            if (!topic->documents->key_exists(topic->documents, url)) {
+                topic->documents->set(topic->documents, url, NULL);
+                topic->documents_number++;
+            }
+            if (tmp) { xmlFree(tmp); tmp = NULL; }
+            topic_level = topic_level->next;
+        }
+        if (url) { free(url); url = NULL; }
+        doc_level = doc_level->next;
+    }
+
+exit:
+    if (tmp) xmlFree(tmp);
+    if (url) free(url);
+    if (ret == OK) {
+        *reply = malloc((strlen("<ok/>") + 1) * sizeof(char *));
+        if (!*reply) return FAIL;
+        strcpy(*reply, "<ok/>");
+    }
+    return ret;
+}
+
 /**********  PUBLIC METHODS  **********/
 
 static int
@@ -420,10 +505,16 @@ TopicStorage_request_handler(struct TopicStorage *self,
             ret = TopicStorage_show_children(self, request_level->children, reply);
             goto request_handler_exit;
         }
+        if (strcmp((char *)tmp, "add_doc") == 0) {
+            ret = TopicStorage_add_doc(self, request_level->children, reply); 
+            goto request_handler_exit;
+        }
         if (strcmp((char *)tmp, "show_docs") == 0) {
+            ret = TopicStorage_show_docs(self, request_level->children, reply);
             goto request_handler_exit;
         }
         if (strcmp((char *)tmp, "doc_num") == 0) {
+            ret = TopicStorage_doc_num(self, request_level->children, reply);
             goto request_handler_exit;
         }
         if (strcmp((char *)tmp, "show_childless") == 0) {

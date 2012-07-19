@@ -10,10 +10,10 @@ int main(int argc,
          const char ** const argv)
 {
     struct Monitor *monitor;
-    char *clock_endpoint = "tcp://localhost:5549";
-    char *rg_ru_endpoint = "tcp://localhost:5559";
+    char *clock_endpoint = "tcp://*:5549";
+    char *rg_ru_endpoint = "tcp://*:5559";
     char *topic_storage_endpoint = "tcp://localhost:5554";
-    char *sink_endpoint = "tcp://localhost:5569";
+    char *sink_endpoint = "tcp://*:5569";
 
     int ret;
 
