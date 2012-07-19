@@ -219,12 +219,10 @@ Topic_new(struct Topic **topic)
         ret = NOMEM;
         goto error;
     }
-    /*
-    if (has_documents_dict) {
-        ret = ooDict_new(&self->documents, DICT_INIT_SIZE);
-        if (ret != OK) goto error;
-    }
-    */
+
+    ret = ooDict_new(&self->documents, DICT_INIT_SIZE);
+    if (ret != OK) goto error;
+
     ret = Topic_init(self);
     if (ret != OK) goto error;
 
