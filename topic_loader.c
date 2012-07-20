@@ -9,6 +9,8 @@
 
 #include "config.h"
 
+#define FIELD_SIZE 100
+
 int main(const int argc,
          const char ** const argv)
 {
@@ -25,6 +27,9 @@ int main(const int argc,
     char *income;
     size_t msg_size;
 
+    char endpoint[FIELD_SIZE];
+    char field[FIELD_SIZE];
+    FILE *fp;
 
     /**** ****/
     if (argc != 2) {
@@ -35,11 +40,21 @@ int main(const int argc,
     path = argv[1];
     /**** ****/
 
+    fp = fopen("topic_loader.ini", "r");
+    if (fp == NULL) {
+        printf(">>> [TopicLoader]: IO ERROR. can't open \"topic_loader.ini\"\n");
+        return 1;
+    }
+
+    fscanf(fp,"%s %*s %s", field, endpoint);
+    printf(">>> [TopicLoader]: field: %s; value: %s;\n", field, endpoint);
+
+    fclose(fp);
 
     context = zmq_init(1);
 
     topic_storage = zmq_socket(context, ZMQ_REQ);
-    zmq_connect(topic_storage, "tcp://localhost:5554");
+    zmq_connect(topic_storage, endpoint);
 
     ret = OK;
     doc = NULL; root = NULL;
