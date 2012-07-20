@@ -4,7 +4,6 @@ MONITOR_OBJ = monitor.o\
 				ooarray.o\
 				oodict.o\
 				oolist.o\
-				resource.o\
 				start_monitor.o
 
 TOPIC_LOADER = topic_loader.o

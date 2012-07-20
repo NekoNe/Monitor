@@ -506,7 +506,7 @@ TopicStorage_request_handler(struct TopicStorage *self,
             goto request_handler_exit;
         }
         if (strcmp((char *)tmp, "add_doc") == 0) {
-            ret = TopicStorage_add_doc(self, request_level->children, reply); 
+            ret = TopicStorage_add_doc(self, request_level->children, reply);
             goto request_handler_exit;
         }
         if (strcmp((char *)tmp, "show_docs") == 0) {

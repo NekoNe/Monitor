@@ -131,15 +131,16 @@ def save_doc(topic, url, rel_url, refer, sender):
     sender.send(pack(url));
 
 # saving docs
-#    if (not os.path.exists(path)): os.makedirs(path)
+    if (not os.path.exists(path)): os.makedirs(path)
+    file_name = path + rel_url[rel_url.rfind("/"):]
 
-#    file_name = path + rel_url[rel_url.rfind("/"):]
-
-#    fp = open(file_name, 'w')
-#    fp.write(page)
-#    fp.close()
-
-#    print ">>> doc: \"%s\" stored at \"%s\"" % (url, file_name)
+    try:
+        fp = open(file_name, 'w')
+        fp.write(page)
+        fp.close()
+    except:
+        return
+    print ">>> doc: \"%s\" stored at \"%s\"" % (url, file_name)
 
 
 def parse_chunk(resource, topic, chank_size, doc_id, sender):

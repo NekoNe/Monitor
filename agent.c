@@ -259,7 +259,7 @@ Agent_crawl_resource(struct Agent *self,
     void *val;
     char *branch;
 
-    key = NULL;
+    key = NULL; /* TODO: free ?*/
     val = NULL;
 
     branch = malloc((strlen(url) + 1) * sizeof(char)); /* TODO: free */
